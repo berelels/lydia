@@ -1,0 +1,16 @@
+{
+  "name": "lydia",
+  "version": "1.0.0",
+  "description": "A friendly desktop companion for Linux that lives at the top of your screen",
+  "main": "app/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js"
+  },
+  "author": "Gabriel Dias",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^44.5.1"
+  },
+  "private": true
+}

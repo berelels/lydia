@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Flat and friendly: white tile, Lydia's purple orb, her happy eyes. -->
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="#ffffff" stroke="#ece6f7" stroke-width="3"/>
+  <circle cx="256" cy="262" r="168" fill="#8f63f7"/>
+  <!-- the same arcs as her happy face (eye-happy in the app), scaled up -->
+  <g fill="none" stroke="#ffffff" stroke-width="26" stroke-linecap="round">
+    <path d="M160 282 Q196 230 232 282"/>
+    <path d="M280 282 Q316 230 352 282"/>
+  </g>
+</svg>

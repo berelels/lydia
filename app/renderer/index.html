@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
+  <title>Lydia</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="island">
+    <!-- Collapsed: a small pill with Lydia and one number. -->
+    <div class="pill-view">
+      <span class="pill-metric" id="pill-metric"><span id="pill-label">RAM</span> <b id="pill-value">--%</b></span>
+    </div>
+
+    <!-- Expanded: tabs, then one of the views. -->
+    <div class="panel-view">
+      <div class="topbar">
+        <div class="tabs">
+          <button class="tab active" data-view="home" data-i18n-title="tab.home">
+            <svg viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5h-5v5H5a1 1 0 0 1-1-1z"/></svg>
+          </button>
+          <button class="tab" data-view="chat" data-i18n-title="tab.chat">
+            <svg viewBox="0 0 24 24"><path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-7l-4 3.5V16H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg>
+          </button>
+          <button class="tab" data-view="code" title="Claude Code">
+            <svg viewBox="0 0 24 24"><path class="stroke" d="M9 7 4 12l5 5M15 7l5 5-5 5"/></svg>
+            <i class="dot" id="code-dot"></i>
+          </button>
+          <button class="tab" data-view="look" data-i18n-title="tab.look">
+            <svg viewBox="0 0 24 24"><path d="M12 4a8 8 0 1 0 0 16c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1.1 0-.9.7-1.6 1.6-1.6H16a4 4 0 0 0 4-4C20 7 16.4 4 12 4zm-4.5 8a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm2.5-3.4a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm4 0a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm2.5 3.4a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6z"/></svg>
+          </button>
+        </div>
+        <div class="tools">
+          <span id="cpu-mini"></span>
+          <button id="btn-pause" class="tab">
+            <svg viewBox="0 0 24 24"><path d="M12 4a5 5 0 0 1 5 5v3.5l1.6 2.9a.7.7 0 0 1-.6 1.1H6a.7.7 0 0 1-.6-1.1L7 12.5V9a5 5 0 0 1 5-5zM10 18.5a2 2 0 0 0 4 0"/></svg>
+          </button>
+          <button id="btn-menu" class="tab" data-i18n-title="tool.menu">
+            <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="cards view-cards">
+        <div class="card main">
+          <!-- home view -->
+          <div class="feed view-home">
+            <div class="line dim" id="feed-1"></div>
+            <div class="line now" id="feed-2"></div>
+            <div class="line dim wrap" id="feed-3"></div>
+            <div class="actions" id="actions"></div>
+          </div>
+          <!-- appearance view -->
+          <div class="appearance view-look">
+            <div class="appearance-row">
+              <span data-i18n="look.body"></span>
+              <div class="swatches" id="sw-body"></div>
+            </div>
+            <div class="appearance-row">
+              <span data-i18n="look.eyes"></span>
+              <div class="swatches" id="sw-eye"></div>
+            </div>
+            <div class="appearance-row">
+              <span data-i18n="look.language"></span>
+              <select class="pick" id="language"></select>
+            </div>
+            <button class="link" id="look-reset" data-i18n="look.reset"></button>
+          </div>
+        </div>
+        <div class="card side">
+          <div class="view-home">
+            <div class="side-title"><span data-i18n="sys.title"></span>
+              <button class="link small" id="open-tasks" data-i18n="sys.tasks"></button>
+            </div>
+            <div class="chips">
+              <div class="chip" data-hue="lav" id="chip-ram"><i class="ring"></i><span>RAM</span><b></b></div>
+              <div class="chip" data-hue="teal" id="chip-cpu"><i class="ring"></i><span>CPU</span><b></b></div>
+              <div class="chip" data-hue="amber" id="chip-disk"><i class="ring"></i><span data-i18n="metric.disk"></span><b></b></div>
+              <div class="chip temp" data-hue="coral" id="chip-temp"><i class="ring"></i><span data-i18n="metric.temp"></span><b><em id="t-cpu">CPU --</em><em id="t-gpu">GPU --</em></b></div>
+            </div>
+          </div>
+          <div class="view-look">
+            <div class="side-title" data-i18n="idle.title"></div>
+            <div class="play">
+              <button data-activity="nap" data-i18n="idle.nap"></button>
+              <button data-activity="music" data-i18n="idle.music"></button>
+              <button data-activity="game" data-i18n="idle.game"></button>
+              <button data-activity="code" data-i18n="idle.code"></button>
+            </div>
+            <div class="pref-row">
+              <span data-i18n="pref.chat_default"></span>
+              <div class="seg" id="default-provider">
+                <button data-p="claude">Claude</button><button data-p="gemini">Gemini</button><button data-p="ollama" data-i18n="provider.local"></button>
+              </div>
+            </div>
+            <button class="switch" data-pref="hide_in_games" role="switch" aria-checked="false" data-i18n-title="pref.games_tip">
+              <i></i><span data-i18n="pref.games"></span>
+            </button>
+            <button class="switch" data-pref="hide_in_fullscreen" role="switch" aria-checked="false" data-i18n-title="pref.fullscreen_tip">
+              <i></i><span data-i18n="pref.fullscreen"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- views with a narrow rail for Lydia on the left -->
+      <div class="wide view-tasks">
+        <div class="rail"></div>
+        <div class="card content">
+          <div class="content-head">
+            <button class="link small" id="tasks-back" data-i18n="tasks.back"></button>
+            <b data-i18n="tasks.title"></b>
+            <div class="seg" id="tasks-sort">
+              <button data-by="cpu" class="on">CPU</button><button data-by="ram" data-i18n="tasks.memory"></button>
+            </div>
+          </div>
+          <div class="task-list" id="task-list"></div>
+        </div>
+      </div>
+
+      <div class="wide view-code">
+        <div class="rail"></div>
+        <div class="card content">
+          <div class="content-head">
+            <b>Claude Code</b><span class="muted" id="code-summary"></span>
+            <button class="pill-btn" id="code-new-open" data-i18n="code.new"></button>
+          </div>
+          <form class="new-session" id="new-session" hidden>
+            <div class="row">
+              <select class="pick" id="ns-dir"></select>
+              <select class="pick" id="ns-model"></select>
+            </div>
+            <div class="row">
+              <textarea id="ns-text" rows="2" data-i18n-ph="ns.placeholder"></textarea>
+              <button type="submit" class="go" data-i18n="ns.start"></button>
+            </div>
+            <span class="muted" data-i18n="ns.note"></span>
+          </form>
+          <div class="code-list" id="code-list"></div>
+        </div>
+      </div>
+
+      <div class="wide view-codechat">
+        <div class="rail"></div>
+        <div class="card content">
+          <div class="content-head">
+            <button class="link small" id="codechat-back" data-i18n="code.back"></button>
+            <b id="codechat-title"></b><span class="muted" id="codechat-state"></span>
+            <span class="usage" id="codechat-usage"></span>
+            <button class="icon-btn" id="codechat-terminal" data-i18n-title="code.open_terminal"><svg viewBox="0 0 24 24"><path class="stroke" d="M4 6h16v12H4zM7.5 10l2.5 2-2.5 2M12 14.5h4"/></svg></button>
+          </div>
+          <div class="messages live" id="codechat"></div>
+          <div id="codechat-approval"></div>
+          <div class="fork-note" id="code-fork-note" data-i18n="code.fork_note" hidden></div>
+          <form class="composer" id="code-composer">
+            <select class="pick" id="code-model" data-i18n-title="code.model_tip"></select>
+            <textarea id="code-input" rows="1"></textarea>
+            <button type="submit" id="code-send" data-i18n-title="chat.send">
+              <svg viewBox="0 0 24 24"><path d="M4 12 20 4l-6 16-2.5-6.5z"/></svg>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div class="wide view-chat">
+        <div class="rail"></div>
+        <div class="card content chat">
+          <div class="content-head">
+            <span class="ghost-tag" data-i18n-title="chat.temp_tip">
+              <svg viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-7 7v10l2.3-1.8L9.6 20l2.4-1.8 2.4 1.8 2.3-1.8L19 20V10a7 7 0 0 0-7-7zm-2.5 8.2a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm5 0a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6z"/></svg>
+              <span data-i18n="chat.temp"></span>
+            </span>
+            <div class="seg" id="chat-provider" data-i18n-title="chat.provider_tip">
+              <button data-p="claude">Claude</button><button data-p="gemini">Gemini</button><button data-p="ollama" data-i18n="provider.local"></button>
+            </div>
+            <select class="pick" id="chat-model" data-i18n-title="chat.model_tip"></select>
+            <button class="link small" id="chat-new" data-i18n="chat.new"></button>
+          </div>
+          <form class="keybox" id="keybox" hidden>
+            <span data-i18n="key.prompt"></span>
+            <div class="keyrow">
+              <input type="password" id="gemini-key" data-i18n-ph="key.placeholder" autocomplete="off" spellcheck="false">
+              <button type="button" class="paste" id="paste-key" data-i18n-title="key.paste_tip" data-i18n="key.paste"></button>
+              <button type="submit" data-i18n="key.save"></button>
+              <button type="button" class="link small" id="get-key" data-i18n="key.get"></button>
+            </div>
+            <em id="key-error"></em>
+          </form>
+          <div class="messages" id="messages"></div>
+          <form class="composer" id="composer">
+            <textarea id="chat-input" rows="1" data-i18n-ph="chat.placeholder"></textarea>
+            <button type="submit" id="chat-send" data-i18n-title="chat.send">
+              <svg viewBox="0 0 24 24"><path d="M4 12 20 4l-6 16-2.5-6.5z"/></svg>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div class="wide view-setup">
+        <div class="rail"></div>
+        <div class="card content setup">
+          <div class="setup-head">
+            <div class="dots" id="setup-dots"></div>
+            <button class="link small" id="setup-skip" data-i18n="setup.skip"></button>
+          </div>
+          <div class="setup-body" id="setup-body"></div>
+          <div class="setup-foot">
+            <button class="link small" id="setup-back" data-i18n="setup.back"></button>
+            <button class="go" id="setup-next"></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lydia lives outside the views so she can morph between them.
+         She has no mouth: everything she feels shows in her eyes. -->
+    <div id="lydia" data-activity="none">
+      <div class="breath">
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <defs>
+            <radialGradient id="g-orb" cx="34%" cy="28%" r="82%">
+              <stop offset="0" class="b0"/>
+              <stop offset=".34" class="b1"/>
+              <stop offset=".74" class="b2"/>
+              <stop offset="1" class="b3"/>
+            </radialGradient>
+            <!-- Stress always uses these, whatever colors were picked. -->
+            <radialGradient id="g-orb-alert" cx="34%" cy="28%" r="82%">
+              <stop offset="0" stop-color="#ffb8d2"/>
+              <stop offset=".34" stop-color="#d0479b"/>
+              <stop offset=".74" stop-color="#97217e"/>
+              <stop offset="1" stop-color="#560f50"/>
+            </radialGradient>
+          </defs>
+
+          <!-- headphones: the band goes behind her, the cups in front -->
+          <g class="headphones prop"><path class="band" d="M2 52 A48 48 0 0 1 98 52"/></g>
+
+          <circle cx="50" cy="50" r="44" fill="url(#g-orb)"/>
+          <circle class="alert-fill" cx="50" cy="50" r="44" fill="url(#g-orb-alert)"/>
+
+          <g class="headphones prop">
+            <rect class="cup" x="-4" y="38" width="14" height="27" rx="7"/>
+            <rect class="cup" x="90" y="38" width="14" height="27" rx="7"/>
+          </g>
+
+          <g class="face">
+            <g class="look">
+              <g transform="translate(35 50)"><g class="eye left">
+                <rect class="eye-dot" x="-7" y="-8.5" width="14" height="17" rx="7"/>
+                <path class="eye-happy" d="M-8 3 Q0 -8 8 3"/>
+              </g></g>
+              <g transform="translate(65 50)"><g class="eye right">
+                <rect class="eye-dot" x="-7" y="-8.5" width="14" height="17" rx="7"/>
+                <path class="eye-happy" d="M-8 3 Q0 -8 8 3"/>
+              </g></g>
+            </g>
+          </g>
+
+          <g class="laptop prop">
+            <path class="lid" d="M18 66 h64 a4 4 0 0 1 4 4 v24 h-72 v-24 a4 4 0 0 1 4 -4z"/>
+            <circle class="logo" cx="50" cy="81" r="3.2"/>
+            <path class="base" d="M8 94 h84 l-5 5 h-74z"/>
+          </g>
+
+          <g class="controller prop">
+            <g class="pad">
+              <path class="pad-body" d="M30 72 h40 a11 11 0 0 1 10.6 8 l3 11 a6 6 0 0 1 -10 6 l-6 -6 h-35.2 l-6 6 a6 6 0 0 1 -10 -6 l3 -11 a11 11 0 0 1 10.6 -8z"/>
+              <path class="dpad" d="M31 80 h4 v4 h4 v4 h-4 v4 h-4 v-4 h-4 v-4 h4z"/>
+              <circle class="btn b-a" cx="66" cy="86" r="2.8"/>
+              <circle class="btn b-b" cx="72" cy="81" r="2.8"/>
+            </g>
+          </g>
+        </svg>
+        <!-- floating bits, as HTML so the compositor moves them for free -->
+        <span class="float note n1">♪</span>
+        <span class="float note n2">♫</span>
+        <span class="float zz z1">z</span>
+        <span class="float zz z2">z</span>
+        <span class="float zz z3">Z</span>
+        <span class="bubble think"><i></i><i></i><i></i></span>
+        <span class="bubble talk"><i></i><i></i><i></i><i></i></span>
+      </div>
+      <span class="badge" id="badge"></span>
+    </div>
+  </div>
+  <script src="../i18n.js"></script>
+  <script src="island.js"></script>
+</body>
+</html>
