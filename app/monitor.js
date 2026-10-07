@@ -41,7 +41,9 @@ function topConsumers(n = 3) {
     } catch {
       continue;
     }
-    const rss = /VmRSS:\s+(\d+)/.exec(status);
+    // Private memory, like the system monitor: RSS counts the pages Brave's 20
+    // processes share once per process, which can nearly double the total.
+    const rss = /RssAnon:\s+(\d+)/.exec(status) ?? /VmRSS:\s+(\d+)/.exec(status);
     if (!rss) continue; // kernel threads
     const name = processName(pid, /^Name:\s+(.*)$/m.exec(status)?.[1] ?? '?');
     totals.set(name, (totals.get(name) ?? 0) + Number(rss[1]) * 1024);
@@ -253,6 +255,62 @@ const RamMonitor = (cfg) =>
   });
 
 /** The systemd unit that owns a process, so stopping it doesn't just get it restarted. */
+// ---------- busy on purpose: a call, a video, music ----------
+
+/** "Sink Input #12 ... Corked: no ... application.process.binary = "brave"" -> [{ pid, binary, corked }] */
+function parseStreams(text) {
+  return String(text)
+    .split(/^(?=Sink Input #|Source Output #)/m)
+    .filter((b) => /^(Sink Input|Source Output) #/.test(b))
+    .map((b) => ({
+      pid: Number(/application\.process\.id = "(\d+)"/.exec(b)?.[1] ?? 0),
+      binary: /application\.process\.binary = "([^"]*)"/.exec(b)?.[1] ?? '',
+      corked: /Corked: yes/.test(b),
+    }));
+}
+
+const exeOf = (pid) => {
+  try {
+    return fs.readlinkSync(`/proc/${pid}/exe`);
+  } catch {
+    return '';
+  }
+};
+const parentOf = (pid) => {
+  try {
+    const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+    return Number(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[1]);
+  } catch {
+    return 0;
+  }
+};
+
+/** The app a process belongs to: it and its parents running the same program (a browser's whole tree). */
+function appOf(pid) {
+  const exe = exeOf(pid);
+  const pids = [pid];
+  for (let p = parentOf(pid), i = 0; exe && p > 1 && i < 20 && exeOf(p) === exe; p = parentOf(p), i++) pids.push(p);
+  return { exe, root: pids.at(-1), pids };
+}
+
+/**
+ * Is this app playing or recording sound right now (a video call, a video,
+ * music)? Then running hot is its job, not a stuck process. Brave's tab and
+ * its audio service are different processes of the same program: matched by
+ * name, or by sharing the same top process. Asks PulseAudio / PipeWire; with
+ * neither, cb(false).
+ */
+function mediaBusy(pid, name, cb) {
+  const opts = { timeout: 3000, env: { ...process.env, LC_ALL: 'C' } };
+  const ask = (what) => new Promise((r) => require('child_process').execFile('pactl', ['list', what], opts, (err, out) => r(err ? [] : parseStreams(out))));
+  Promise.all([ask('sink-inputs'), ask('source-outputs')]).then(([play, rec]) => {
+    const app = appOf(pid);
+    const names = new Set([name, path.basename(app.exe)].filter(Boolean));
+    const live = [...play.filter((s) => !s.corked), ...rec];
+    cb(live.some((s) => names.has(s.binary) || (s.pid > 0 && app.exe && appOf(s.pid).root === app.root)));
+  });
+}
+
 function unitOf(pid) {
   let cg;
   try {
@@ -269,6 +327,17 @@ function unitOf(pid) {
 
 const TICK = 100; // USER_HZ on Linux (getconf CLK_TCK)
 const PAGE = 4096; // getconf PAGESIZE
+const CORES = require('os').cpus().length || 1;
+
+/** Memory only this process uses (resident minus shared), as the system monitor shows it. */
+function privateBytes(pid) {
+  try {
+    const [, resident, shared] = fs.readFileSync(`/proc/${pid}/statm`, 'utf8').split(' ').map(Number);
+    return Math.max(0, resident - shared) * PAGE;
+  } catch {
+    return 0;
+  }
+}
 
 /**
  * Finds processes stuck at ~100% of a core: the kind of thing that heats the
@@ -335,21 +404,34 @@ class HogWatch {
     return { pid: Number(pid), name: p.name, percent: p.percent, minutes: Math.floor((now - p.since) / 60_000), unit: unitOf(pid) };
   }
 
-  /** For the task manager: apps by name (all of Brave's processes together), biggest first. */
+  /**
+   * For the task manager: apps by name (all of Brave's processes together), biggest first.
+   * cpu is a share of the whole processor (12 threads at full = 100%), like the
+   * system monitor; hot means one of its processes is pinning a whole core.
+   */
   tasks(by = 'cpu', n = 8, own = new Set()) {
     const groups = new Map();
     for (const [pid, p] of this.procs) {
       if (!p.rss) continue; // kernel threads
       const self = own.has(Number(pid)); // Lydia's own processes: listed as herself
       const name = self ? 'Lydia' : p.name;
-      const g = groups.get(name) ?? { name, cpu: 0, gb: 0, pids: [], self };
-      g.cpu += p.percent;
-      g.gb += p.rss / GB;
+      const g = groups.get(name) ?? { name, cpu: 0, gb: 0, pids: [], self, hot: false };
+      g.cpu += p.percent / CORES;
+      g.gb += privateBytes(pid) / GB;
+      g.hot ||= p.percent >= 90;
       g.pids.push(Number(pid));
       groups.set(name, g);
     }
     const key = by === 'ram' ? (g) => g.gb : (g) => g.cpu + g.gb / 1000;
     return [...groups.values()].sort((a, b) => key(b) - key(a)).slice(0, n);
+  }
+
+  /** Busy on purpose (a call...): don't report it now, look again after another full stretch. */
+  postpone(pid) {
+    const p = this.procs.get(String(pid));
+    if (!p) return;
+    p.alerted = false;
+    p.since = performance.now();
   }
 
   /** Hogs still going, after they were reported. */
@@ -361,4 +443,4 @@ class HogWatch {
   }
 }
 
-module.exports = { findSensors, memory, topConsumers, cpu, disk, temperatures, ThresholdWatch, RamMonitor, HogWatch, unitOf, fmt };
+module.exports = { parseStreams, mediaBusy, findSensors, memory, topConsumers, cpu, disk, temperatures, ThresholdWatch, RamMonitor, HogWatch, unitOf, fmt };

@@ -566,7 +566,7 @@ async function loadTasks() {
     const ask = confirmName === task.name;
     return `<div class="task">
       <span class="name">${esc(task.name)}${task.count > 1 ? `<small>×${task.count}</small>` : ''}</span>
-      <span class="num ${task.cpu >= 90 ? 'hot' : ''}">${Math.round(task.cpu)}%</span>
+      <span class="num ${task.hot ? 'hot' : ''}">${task.cpu < 10 ? fmt(task.cpu) : Math.round(task.cpu)}%</span>
       <span class="num">${fmt(task.gb)} GB</span>
       ${task.self ? '<span></span>' : `<button data-name="${esc(task.name)}" class="${ask ? 'confirm' : ''}">${t(ask ? 'tasks.confirm' : 'tasks.kill')}</button>`}
     </div>`;

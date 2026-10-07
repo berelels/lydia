@@ -509,8 +509,17 @@ function check() {
   if (!state.paused) {
     // Most specific first: a stuck process usually explains the heat.
     if (hogs.length) {
-      const n = hogNotice(hogs[0]);
-      notify(n.kind, n.title, n.lines, 25, n.actions);
+      // A browser in a video call runs hot on purpose: only a silent hog is stuck.
+      const h = hogs[0];
+      sys.mediaBusy(h.pid, h.name, (busy) => {
+        if (busy) {
+          watch.hogs.postpone(h.pid);
+          if (process.env.LYDIA_DEBUG) console.log(`[lydia] ${h.name} runs hot but is playing or recording sound: not stuck`);
+          return;
+        }
+        const n = hogNotice(h);
+        notify(n.kind, n.title, n.lines, 25, n.actions);
+      });
     } else if (cpuT.event === 'alert') notify('alert', t('alert.cpu', { deg: deg(cpuT.value) }), [t('issue.top', { list: hotProcesses() })], 14);
     else if (gpuT.event === 'alert') notify('alert', t('alert.gpu', { deg: deg(gpuT.value) }), [], 14);
     else if (ram.event === 'alert') notify('alert', t('alert.ram'), ramLines(), 14);
@@ -900,7 +909,7 @@ ipcMain.on('code-decide', (_e, id, decision) => {
 });
 ipcMain.handle('tasks', (_e, by) => {
   const mine = new Set([process.pid, ...app.getAppMetrics().map((m) => m.pid)]);
-  return watch.hogs.tasks(by === 'ram' ? 'ram' : 'cpu', 8, mine).map(({ name, cpu, gb, pids, self }) => ({ name, cpu, gb, count: pids.length, self }));
+  return watch.hogs.tasks(by === 'ram' ? 'ram' : 'cpu', 8, mine).map(({ name, cpu, gb, pids, self, hot }) => ({ name, cpu, gb, count: pids.length, self, hot }));
 });
 ipcMain.handle('task-kill', (_e, name) => (typeof name === 'string' ? killApp(name) : { ok: false }));
 ipcMain.on('toggle-pause', togglePause);
