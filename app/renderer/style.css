@@ -778,3 +778,140 @@ html, body {
   left: 50%; top: 114%; translate: -50% 0; height: 20%; justify-content: center;
 }
 .msg .hint { color: var(--soft); font-size: 12px; }
+
+/* ---------- more idle activities: book, plant, cube, drawing, coffee, lunch, night ---------- */
+
+#lydia .book, #lydia .plant, #lydia .cube, #lydia .easel, #lydia .mug, #lydia .bowl, #lydia .moon { transform-box: view-box; transform-origin: 50% 85%; }
+#lydia .cover { fill: #6d4fd0; }
+#lydia .pg { fill: #f7f3ea; stroke: #d9cfbd; stroke-width: .8; }
+#lydia .ln { fill: none; stroke: #c9bfae; stroke-width: 1.3; stroke-linecap: round; }
+#lydia .page { transform-box: view-box; transform-origin: 50% 50%; }
+#lydia .pot { fill: #c4673f; }
+#lydia .rim { fill: #d97b52; }
+#lydia .stem { fill: none; stroke: #3fbf6f; stroke-width: 2.4; stroke-linecap: round; }
+#lydia .leaf { fill: #4ade80; }
+#lydia .sprout { transform-box: fill-box; transform-origin: 0% 100%; }
+#lydia .can { transform-box: view-box; transform-origin: 95% 42%; }
+#lydia .can-body { fill: #7dd3fc; }
+#lydia .can-spout, #lydia .can-handle { fill: none; stroke: #7dd3fc; stroke-width: 2.6; stroke-linecap: round; }
+#lydia .drop { fill: #7dd3fc; opacity: 0; }
+#lydia .st { stroke: #15141b; stroke-width: 1.2; stroke-linejoin: round; }
+#lydia .cube-body { transform-box: view-box; transform-origin: 50% 82%; }
+#lydia .board { fill: #fbf8f0; stroke: #b98b5e; stroke-width: 2; }
+#lydia .legs { fill: none; stroke: #b98b5e; stroke-width: 2; stroke-linecap: round; }
+#lydia .ink { fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 60; stroke-dashoffset: 60; }
+#lydia .i1 { stroke: #f472b6; }
+#lydia .i2 { stroke: #60a5fa; }
+#lydia .i3 { stroke: #facc15; stroke-dasharray: 20; stroke-dashoffset: 20; }
+#lydia .brush { fill: none; stroke: #b98b5e; stroke-width: 2.6; stroke-linecap: round; transform-box: view-box; transform-origin: 60% 70%; }
+#lydia .cup2 { fill: #f5f0e6; stroke: #c9b8a0; stroke-width: 1.4; }
+#lydia .handle { fill: none; stroke: #c9b8a0; stroke-width: 2.6; }
+#lydia .coffee { fill: #6b4226; }
+#lydia .steam { fill: none; stroke: #e9e4f5; stroke-width: 1.8; stroke-linecap: round; opacity: 0; }
+#lydia .mug-body { transform-box: view-box; transform-origin: 77% 85%; }
+#lydia .bowl-body { fill: #f5f0e6; stroke: #c9b8a0; stroke-width: 1.4; }
+#lydia .noodles { fill: #fbbf24; }
+#lydia .sticks path { fill: none; stroke: #b98b5e; stroke-width: 2.2; stroke-linecap: round; }
+#lydia .sticks { transform-box: view-box; transform-origin: 50% 80%; }
+#lydia .crescent { fill: #fde68a; }
+#lydia .star { fill: #fef3c7; }
+
+/* book: eyes down, reading across the lines; a page turns every few seconds */
+#lydia[data-activity="book"] .book { opacity: 1; }
+#lydia[data-activity="book"] .face { translate: 0 3px; }
+#lydia[data-activity="book"] .eye-dot { scale: 1 .62; }
+#lydia[data-activity="book"] .look { animation: read 2.6s ease-in-out infinite; }
+#lydia[data-activity="book"] .page { animation: turn 6s ease-in-out infinite; }
+@keyframes turn { 0%, 80% { transform: scaleX(1); } 88% { transform: scaleX(0); } 96%, 100% { transform: scaleX(-1); opacity: 0; } }
+
+/* plant: she looks at it, tips the can, drops fall, a new leaf grows, she smiles */
+#lydia[data-activity="plant"] .plant { opacity: 1; }
+#lydia[data-activity="plant"] .look { transform: translate(3px, 2px); }
+#lydia[data-activity="plant"] .can { animation: pour 5s ease-in-out infinite; }
+#lydia[data-activity="plant"] .drop { animation: fall 5s ease-in infinite; }
+#lydia[data-activity="plant"] .d2 { animation-delay: .25s; }
+#lydia[data-activity="plant"] .d3 { animation-delay: .5s; }
+#lydia[data-activity="plant"] .sprout { animation: grow 5s ease-out infinite; }
+#lydia[data-activity="plant"] .eye-happy { animation: glad 5s infinite; }
+#lydia[data-activity="plant"] .eye-dot { animation: glad-dot 5s infinite; }
+@keyframes pour { 0%, 25% { rotate: 0deg; } 35%, 65% { rotate: -28deg; } 75%, 100% { rotate: 0deg; } }
+@keyframes fall { 0%, 35% { opacity: 0; transform: translate(0, 0); } 40% { opacity: 1; } 62% { opacity: 1; transform: translate(2px, 16px); } 64%, 100% { opacity: 0; transform: translate(2px, 16px); } }
+@keyframes grow { 0%, 60% { scale: .2; } 78%, 100% { scale: 1; } }
+@keyframes glad { 0%, 76% { opacity: 0; } 80%, 96% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes glad-dot { 0%, 76% { opacity: 1; } 80%, 96% { opacity: 0; } 100% { opacity: 1; } }
+
+/* cube: twisting with a puzzled squint, colors shuffling... solved, happy eyes */
+#lydia[data-activity="cube"] .cube { opacity: 1; }
+#lydia[data-activity="cube"] .face { translate: 0 3px; }
+#lydia[data-activity="cube"] .cube-body { animation: twist 8s ease-in-out infinite; }
+#lydia[data-activity="cube"] .eye-dot { animation: puzzled 8s infinite; }
+#lydia[data-activity="cube"] .eye-happy { animation: solved 8s infinite; }
+#lydia[data-activity="cube"] .topa { animation: c-top-a 8s steps(1) infinite; }
+#lydia[data-activity="cube"] .topb { animation: c-top-b 8s steps(1) infinite; }
+#lydia[data-activity="cube"] .lfta { animation: c-lft-a 8s steps(1) infinite; }
+#lydia[data-activity="cube"] .lftb { animation: c-lft-b 8s steps(1) infinite; }
+#lydia[data-activity="cube"] .rgta { animation: c-rgt-a 8s steps(1) infinite; }
+#lydia[data-activity="cube"] .rgtb { animation: c-rgt-b 8s steps(1) infinite; }
+#lydia .st { fill: #f5f5f5; }
+@keyframes twist { 0%, 100% { rotate: 0deg; } 10% { rotate: -9deg; } 20% { rotate: 6deg; } 32% { rotate: -6deg; } 44% { rotate: 9deg; } 56% { rotate: -4deg; } 68% { rotate: 5deg; } 76% { rotate: 0deg; } 82% { translate: 0 -4px; } 88% { translate: 0 0; } }
+@keyframes puzzled { 0%, 76% { opacity: 1; scale: 1 .55; } 80%, 97% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes solved { 0%, 76% { opacity: 0; } 80%, 97% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes c-top-a { 0% { fill: #ef4444; } 12% { fill: #22c55e; } 26% { fill: #facc15; } 40% { fill: #3b82f6; } 54% { fill: #fb923c; } 66% { fill: #f5f5f5; } 78%, 100% { fill: #f5f5f5; } }
+@keyframes c-top-b { 0% { fill: #3b82f6; } 12% { fill: #f5f5f5; } 26% { fill: #ef4444; } 40% { fill: #facc15; } 54% { fill: #22c55e; } 66% { fill: #fb923c; } 78%, 100% { fill: #f5f5f5; } }
+@keyframes c-lft-a { 0% { fill: #facc15; } 12% { fill: #3b82f6; } 26% { fill: #f5f5f5; } 40% { fill: #22c55e; } 54% { fill: #ef4444; } 66% { fill: #fb923c; } 78%, 100% { fill: #ef4444; } }
+@keyframes c-lft-b { 0% { fill: #22c55e; } 12% { fill: #fb923c; } 26% { fill: #3b82f6; } 40% { fill: #ef4444; } 54% { fill: #f5f5f5; } 66% { fill: #facc15; } 78%, 100% { fill: #ef4444; } }
+@keyframes c-rgt-a { 0% { fill: #fb923c; } 12% { fill: #ef4444; } 26% { fill: #22c55e; } 40% { fill: #f5f5f5; } 54% { fill: #facc15; } 66% { fill: #ef4444; } 78%, 100% { fill: #3b82f6; } }
+@keyframes c-rgt-b { 0% { fill: #f5f5f5; } 12% { fill: #facc15; } 26% { fill: #fb923c; } 40% { fill: #ef4444; } 54% { fill: #3b82f6; } 66% { fill: #22c55e; } 78%, 100% { fill: #3b82f6; } }
+
+/* drawing: eyes on the canvas, the brush dabbing, strokes appearing one by one */
+#lydia[data-activity="draw"] .easel { opacity: 1; }
+#lydia[data-activity="draw"] .look { transform: translate(3px, 1px); }
+#lydia[data-activity="draw"] .eye-dot { scale: 1 .8; }
+#lydia[data-activity="draw"] .brush { animation: dab 1.1s ease-in-out infinite; }
+#lydia[data-activity="draw"] .i1 { animation: paint 7s ease-in-out infinite; }
+#lydia[data-activity="draw"] .i2 { animation: paint 7s ease-in-out infinite 1.6s; }
+#lydia[data-activity="draw"] .i3 { animation: paint-dot 7s ease-in-out infinite 3s; }
+@keyframes dab { 0%, 100% { rotate: 0deg; translate: 0 0; } 50% { rotate: 12deg; translate: 2px -2px; } }
+@keyframes paint { 0% { stroke-dashoffset: 60; opacity: 1; } 35%, 85% { stroke-dashoffset: 0; opacity: 1; } 95%, 100% { stroke-dashoffset: 0; opacity: 0; } }
+@keyframes paint-dot { 0% { stroke-dashoffset: 20; opacity: 1; } 20%, 70% { stroke-dashoffset: 0; opacity: 1; } 80%, 100% { stroke-dashoffset: 0; opacity: 0; } }
+
+/* coffee (mornings): steam rising, and every few seconds a sip with eyes closed in delight */
+#lydia[data-activity="coffee"] .mug { opacity: 1; }
+#lydia[data-activity="coffee"] .steam, #lydia[data-activity="lunch"] .steam { animation: steam 2.8s ease-out infinite; }
+#lydia[data-activity="coffee"] .s2, #lydia[data-activity="lunch"] .s2 { animation-delay: 1.4s; }
+#lydia[data-activity="coffee"] .mug-body { animation: sip 6s ease-in-out infinite; }
+#lydia[data-activity="coffee"] .eye-happy { animation: sip-eyes 6s infinite; }
+#lydia[data-activity="coffee"] .eye-dot { animation: sip-dot 6s infinite; }
+@keyframes steam { 0% { opacity: 0; transform: translateY(2px); } 30% { opacity: .8; } 100% { opacity: 0; transform: translateY(-8px); } }
+@keyframes sip { 0%, 40% { transform: translate(0, 0) rotate(0deg); } 50%, 64% { transform: translate(-14px, -10px) rotate(-22deg); } 74%, 100% { transform: translate(0, 0) rotate(0deg); } }
+@keyframes sip-eyes { 0%, 48% { opacity: 0; } 52%, 70% { opacity: 1; } 74%, 100% { opacity: 0; } }
+@keyframes sip-dot { 0%, 48% { opacity: 1; } 52%, 70% { opacity: 0; } 74%, 100% { opacity: 1; } }
+
+/* lunch (around noon): chopsticks lifting noodles, happy eyes */
+#lydia[data-activity="lunch"] .bowl { opacity: 1; }
+#lydia[data-activity="lunch"] .face { translate: 0 2px; }
+#lydia[data-activity="lunch"] .sticks { animation: slurp 1.8s ease-in-out infinite; }
+#lydia[data-activity="lunch"] .eye-happy { animation: sip-eyes 3.6s infinite; }
+#lydia[data-activity="lunch"] .eye-dot { animation: sip-dot 3.6s infinite; }
+@keyframes slurp { 0%, 100% { transform: translate(0, 0); } 45% { transform: translate(-3px, -9px); } }
+
+/* night: sleepier eyes when idle, and a moon with twinkling stars while she naps */
+#lydia[data-time="night"][data-activity="none"] .eye-dot { scale: 1 .78; }
+#lydia[data-time="night"][data-activity="nap"] .moon { opacity: 1; }
+#lydia[data-time="night"][data-activity="nap"] .star { animation: twinkle 2.4s ease-in-out infinite; }
+#lydia[data-time="night"][data-activity="nap"] .t2 { animation-delay: 1.2s; }
+@keyframes twinkle { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+
+/* ---------- reactions to the new ones (the activity is still set while these play) ---------- */
+#lydia.startle .book { opacity: 0; transform: translateY(18px) rotate(8deg); transition: transform .45s ease-in, opacity .35s .15s; }
+#lydia.startle .page { animation: none; }
+#lydia.startle .can { animation: none; opacity: 0; transform: translate(10px, -26px) rotate(40deg); transition: transform .5s var(--ease-out), opacity .4s .1s; }
+#lydia.startle .drop { animation: none; opacity: 0; }
+#lydia.startle .cube-body { animation: none; transform: translate(-6px, -44px) rotate(-200deg); opacity: 0; transition: transform .6s var(--ease-out), opacity .4s .25s; }
+#lydia.startle .brush { animation: none; transform: translate(-8px, 20px) rotate(-70deg); opacity: 0; transition: transform .45s ease-in, opacity .3s .15s; }
+#lydia.startle .i1 { stroke-dasharray: none; stroke-width: 3; }
+#lydia.startle .mug-body { animation: none; transform: translate(0, -10px) rotate(14deg); transition: transform .25s var(--ease-out); }
+#lydia.startle .mug .steam { animation: steam .5s ease-out 1; }
+#lydia.startle .sticks { animation: none; opacity: 0; transform: translate(6px, 24px) rotate(30deg); transition: transform .45s ease-in, opacity .3s .15s; }
+#lydia.startle .eye-dot { animation: none; }
+#lydia.startle .eye-happy { animation: none; }

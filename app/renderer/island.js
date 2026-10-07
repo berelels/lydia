@@ -176,12 +176,33 @@ const drop = (...c) => () => orb.classList.remove(...c);
 
 // ---------- idle activities, and how she reacts when you come close ----------
 
-const ACTIVITIES = ['nap', 'music', 'game'];
+// Picked at random when idle. Music is not (she listens only when music really
+// plays), nor coding (only while Claude Code works).
+const ACTIVITIES = ['nap', 'game', 'book', 'plant', 'cube', 'draw', 'coffee', 'lunch'];
+
+/** The part of the day: coffee in the morning, lunch around noon, sleepy at night. */
+function dayPart(d = new Date()) {
+  const h = d.getHours() + d.getMinutes() / 60;
+  if (h >= 22 || h < 6) return 'night';
+  if (h < 11) return 'morning';
+  if (h >= 11.5 && h < 14) return 'noon';
+  return 'day';
+}
+/** A random idle activity, weighted by the time of day. */
+function pickActivity() {
+  const part = dayPart();
+  const weights = { nap: part === 'night' ? 4 : 1, game: 1, book: 1, plant: 1, cube: 1, draw: 1, coffee: part === 'morning' ? 3 : 0, lunch: part === 'noon' ? 3 : 0 };
+  let r = Math.random() * Object.values(weights).reduce((a, b) => a + b, 0);
+  for (const [name, w] of Object.entries(weights)) if ((r -= w) < 0) return name;
+  return 'nap';
+}
+setInterval(() => (orb.dataset.time = dayPart()), 60_000);
 let activity = 'none';
 let activityTimer = 0;
 
-let compact = false; // fullscreen notch: keep still, don't distract
-const idle = () => !state.expanded && !state.issue && !state.paused && !state.notice && !compact;
+let compact = false; // fullscreen notch: small, but she still naps, listens to music, plays
+let gone = false; // hidden for a game or a video: nobody to see her
+const idle = () => !state.expanded && !state.issue && !state.paused && !state.notice && !gone;
 
 function setActivity(name) {
   activity = name;
@@ -192,7 +213,7 @@ function scheduleActivity(ms) {
   clearTimeout(activityTimer);
   activityTimer = setTimeout(() => {
     if (!idle() || activity !== 'none') return scheduleActivity(15_000);
-    startActivity(ACTIVITIES[Math.floor(Math.random() * ACTIVITIES.length)], rand(25_000, 50_000));
+    startActivity(pickActivity(), rand(25_000, 50_000));
   }, ms);
 }
 
@@ -227,7 +248,8 @@ function react() {
       [1000, drop('startle')],
       [1250, () => smile(900)],
     ]);
-  } else if (was === 'game') {
+  } else if (was !== 'nap') {
+    // game, book, plant, cube, drawing, coffee, lunch: a start, whatever she held goes flying, a blink
     play([
       [0, add('startle')],
       [900, () => setActivity('none')],
@@ -258,6 +280,7 @@ function stopActivityQuietly() {
   scheduleActivity(rand(30_000, 60_000));
 }
 
+orb.dataset.time = dayPart();
 scheduleActivity(rand(20_000, 40_000));
 
 // ---------- state from the main process ----------
@@ -307,7 +330,8 @@ window.lydia.on('layout', (l) => {
   island.classList.toggle('mini', compact);
   island.classList.toggle('gone', !!l.hidden);
   island.classList.toggle('peek', !!l.peek);
-  if (compact) stopActivityQuietly();
+  gone = !!l.hidden && !l.peek;
+  if (gone) stopActivityQuietly();
   if (!laidOut) {
     void island.offsetHeight;
     island.style.transition = '';
@@ -326,7 +350,7 @@ window.lydia.on('prefs', (p) => {
     sw.setAttribute('aria-checked', String(!!p[sw.dataset.pref]));
   }
 });
-window.lydia.on('demo', (name) => [...ACTIVITIES, 'code'].includes(name) && startActivity(name, 10 * 60_000));
+window.lydia.on('demo', (name) => [...ACTIVITIES, 'music', 'code'].includes(name) && startActivity(name, 10 * 60_000));
 window.lydia.on('view', (v) => setView(v, false));
 
 // ---------- eyes follow the mouse ----------
@@ -457,7 +481,7 @@ applyLook(DEFAULT);
 // ---------- views and input ----------
 
 // Same heights as VIEW_H in main.js (it shapes the clickable area from them).
-const VIEW_H = { home: 200, look: 272, code: 340, codechat: 460, tasks: 330, chat: 440, setup: 440 };
+const VIEW_H = { home: 200, look: 330, code: 340, codechat: 460, tasks: 330, chat: 440, setup: 440 };
 function setView(view, tell = true) {
   if (!(view in VIEW_H)) return;
   const was = island.dataset.view;
@@ -611,6 +635,7 @@ $('tasks-back').addEventListener('click', () => setView('home'));
 const status = (s) => (s in { working: 1, waiting: 1, idle: 1 } ? t(`code.state.${s}`) : '');
 let approvalHtml = () => '';
 let codingFromClaude = false;
+let musicFromPlayer = false;
 
 /** She codes along while any Claude Code session is working. */
 function syncCoding() {
@@ -622,6 +647,16 @@ function syncCoding() {
   } else if (!working && codingFromClaude && activity === 'code') {
     codingFromClaude = false;
     stopActivityQuietly();
+  }
+  // Music playing in a player (a video or a film doesn't count): she listens
+  // along, unless she is busy coding with Claude.
+  const music = !!state.music && !state.issue && !state.paused && !gone;
+  if (music && !working && activity !== 'music') {
+    startActivity('music', 6 * 60 * 60_000);
+    musicFromPlayer = true;
+  } else if (!music && musicFromPlayer) {
+    musicFromPlayer = false;
+    if (activity === 'music') stopActivityQuietly();
   }
   const dot = $('code-dot');
   dot.className = 'dot' + (c.pending.length ? ' waiting' : working ? ' working' : '');

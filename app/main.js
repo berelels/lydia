@@ -14,6 +14,7 @@ const { OwnedSession, MODELS } = require('./code-sessions');
 const { Bridge } = require('./bridge');
 const { pickDesktop } = require('./desktop');
 const setup = require('./setup');
+const media = require('./media');
 
 // Under Wayland, run through XWayland: a native Wayland window can't place
 // itself at the top of the screen or stay above the others. Chromium picks its
@@ -40,7 +41,7 @@ const GEOM = {
   glow: 24, // room for the shadow around the visible island
 };
 // Height of the open panel for each view (the renderer uses the same numbers).
-const VIEW_H = { home: 200, look: 272, code: 340, codechat: 460, tasks: 330, chat: 440, setup: 440 };
+const VIEW_H = { home: 200, look: 330, code: 340, codechat: 460, tasks: 330, chat: 440, setup: 440 };
 const HOVER_IN_MS = 90;
 const HOVER_IN_FULLSCREEN_MS = 350; // reaching for a video's controls shouldn't pop her open
 const HOVER_OUT_MS = 450;
@@ -62,6 +63,7 @@ const state = {
   view: 'home', // which view the open panel shows
   pokeUntil: 0, // SIGHUP: act as if the mouse were on her for a moment
   news: false, // a reply came while you were away, not seen yet
+  music: false, // a music player (not a video) is playing: she listens along
 };
 let hoverSince = 0;
 let leaveSince = 0;
@@ -234,6 +236,7 @@ function pushState() {
   send('state', {
     expanded: state.expanded,
     paused: state.paused,
+    music: state.music,
     issue: currentIssue(),
     notice: n && { kind: n.kind, title: n.title, lines: n.lines, actions: n.actions ?? [] },
     code: codeSnapshot(),
@@ -1029,6 +1032,17 @@ app.whenReady().then(() => {
   bridge.start();
   transcripts.start();
   every(50, tick);
+  let asking = false; // one MPRIS look at a time
+  every(4000, async () => {
+    if (asking) return;
+    asking = true;
+    const music = await media.musicPlaying().catch(() => false);
+    asking = false;
+    if (music !== state.music) {
+      state.music = music;
+      pushState();
+    }
+  });
   every(cfg.check_interval_seconds * 1000, check);
   let beat = 0; // open: every 1.5 s; collapsed (only the pill shows them): every 3 s
   every(1500, () => (state.expanded || ++beat % 2 === 0) && pushStats());
