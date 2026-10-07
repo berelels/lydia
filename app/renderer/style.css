@@ -773,3 +773,8 @@ html, body {
 .summary li::before { content: "✓"; color: var(--teal); margin-right: 8px; }
 .summary li.off::before { content: "–"; color: var(--mute); }
 .s-section .s-text { display: block; margin: 0 0 8px; }
+/* Wide views: the orb sits in the narrow rail, so "thinking" / "talking" goes under her, not over the text. */
+#island.expanded:is([data-view="tasks"], [data-view="code"], [data-view="chat"], [data-view="codechat"], [data-view="setup"]) #lydia .bubble {
+  left: 50%; top: 114%; translate: -50% 0; height: 20%; justify-content: center;
+}
+.msg .hint { color: var(--soft); font-size: 12px; }

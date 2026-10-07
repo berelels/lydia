@@ -77,6 +77,11 @@ async function* lines(res) {
 const GEMINI = 'https://generativelanguage.googleapis.com/v1beta';
 let geminiList = null; // models this key can call, best first
 const blocked = new Set(); // models that answered "no free quota" (limit 0) this run
+const resting = new Map(); // model -> until when: overloaded (503) or silent, skip it for a while
+let lastGood = ''; // the model that answered last: tried first next time
+const REST_MS = 10 * 60_000;
+const START_MS = 15_000; // a model that hasn't started answering by then is skipped
+const HEDGE_MS = 4_000; // ...but after this long the next one already joins the race
 
 /** Flash models to try, best first: newest stable, then lite, then previews. */
 async function geminiCandidates(key, wanted) {
@@ -91,7 +96,22 @@ async function geminiCandidates(key, wanted) {
     geminiList = names.sort((a, b) => rank(a) - rank(b) || b.localeCompare(a, undefined, { numeric: true }));
     if (!geminiList.length) geminiList = ['gemini-flash-latest'];
   }
-  return geminiList.filter((m) => !blocked.has(m));
+  const now = Date.now();
+  const ok = geminiList.filter((m) => !blocked.has(m));
+  const fresh = ok.filter((m) => !(resting.get(m) > now));
+  const order = fresh.length ? fresh : ok; // all resting: try them anyway
+  return lastGood && order.includes(lastGood) ? [lastGood, ...order.filter((m) => m !== lastGood)] : order;
+}
+
+/**
+ * Gemini 2.5 and 3 think before answering, which can take 10 s or more. For a
+ * quick chat: as little as each model allows (flash: minimal, pro: low).
+ */
+function thinkingFor(model) {
+  if (/gemini-2\.5-flash/.test(model)) return { thinkingBudget: 0 };
+  if (/gemini-(\d+(\.\d+)?-)?pro/.test(model)) return /2\.5/.test(model) ? null : { thinkingLevel: 'low' };
+  if (/gemini-(3|flash-latest|flash-lite-latest)/.test(model)) return { thinkingLevel: 'minimal' };
+  return null;
 }
 
 /** Plain text chat models: "gemini-3.8-flash", "gemini-flash-latest", "gemini-pro-latest"... not omni, robotics, image, audio. */
@@ -145,38 +165,122 @@ class GeminiChat extends HistoryChat {
     this.model = opts.model;
   }
 
-  async stream(delta, signal) {
+  /** One request; aborted if the model hasn't started answering within START_MS. */
+  async request(model, signal, thinking = true, cancel = null) {
+    const config = thinking && thinkingFor(model);
     const body = JSON.stringify({
       systemInstruction: { parts: [{ text: persona() }] },
       contents: this.history.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] })),
+      ...(config ? { generationConfig: { thinkingConfig: config } } : {}),
     });
-    // A model with no free quota for this account (429, "limit: 0") is skipped
-    // for the next one; any other error stops here.
-    let res;
-    let last;
-    for (const model of await geminiCandidates(this.key, this.model)) {
-      res = await fetch(`${GEMINI}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
+    const ac = new AbortController();
+    const stop = () => ac.abort();
+    signal.addEventListener('abort', stop);
+    cancel?.addEventListener('abort', stop);
+    const timer = setTimeout(() => ac.abort(new Error('slow')), START_MS);
+    try {
+      const res = await fetch(`${GEMINI}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-goog-api-key': this.key },
         body,
-        signal,
+        signal: ac.signal,
       });
-      if (res.ok) {
-        this.used = model;
-        break;
+      // Some models don't take a thinking setting: ask again without it.
+      if (res.status === 400 && config) {
+        const text = await res.text();
+        if (/thinking/i.test(text)) return this.request(model, signal, false, cancel);
+        return { res, text };
       }
-      const text = await res.text();
-      if (process.env.LYDIA_DEBUG) console.log(`[lydia] gemini ${model} -> ${res.status} ${text.slice(0, 600).replace(/\s+/g, ' ')}`);
-      last = new HttpError(res.status, text);
-      last.model = model;
-      if (res.status === 429 && quotaOf(text).none && !this.model) {
-        blocked.add(model); // no free quota for this one on this account
-        continue;
-      }
-      if (res.status === 503 && !this.model) continue; // overloaded right now: try the next
-      throw last;
+      return { res, text: res.ok ? '' : await res.text() };
+    } finally {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', stop);
+      cancel?.removeEventListener('abort', stop);
     }
-    if (!res?.ok) throw last ?? new HttpError(429, '');
+  }
+
+  /** The model the user picked: its answer, or why not. */
+  async only(model, signal) {
+    let r;
+    try {
+      r = await this.request(model, signal);
+    } catch (err) {
+      if (err?.message === 'slow') throw Object.assign(new HttpError(503, ''), { model }); // explained as "overloaded"
+      throw err;
+    }
+    if (r.res.ok) return { res: r.res, model };
+    throw Object.assign(new HttpError(r.res.status, r.text), { model });
+  }
+
+  /**
+   * Automatic: the models race. The best one starts; if it hasn't started
+   * answering within HEDGE_MS (or fails), the next one joins, and so on. The
+   * first to answer wins and the others are cancelled. Overloaded (503) or
+   * silent models rest for a while; ones with no free quota are dropped.
+   */
+  race(models, signal) {
+    return new Promise((resolve, reject) => {
+      const attempts = new Map(); // model -> AbortController
+      let next = 0;
+      let done = false;
+      let last = null;
+      let hedge = 0;
+      const finish = (fn, value) => {
+        if (done) return;
+        done = true;
+        clearTimeout(hedge);
+        for (const ac of attempts.values()) ac.abort();
+        fn(value);
+      };
+      const launch = () => {
+        clearTimeout(hedge);
+        if (done) return;
+        if (next >= models.length) {
+          if (!attempts.size) finish(reject, last ?? new HttpError(503, ''));
+          return;
+        }
+        const model = models[next++];
+        const ac = new AbortController();
+        attempts.set(model, ac);
+        if (next > 1) this.onState('retrying'); // a second model joined: say why it's taking long
+        hedge = setTimeout(() => attempts.size < 3 && launch(), HEDGE_MS); // at most 3 at once
+        this.request(model, signal, true, ac.signal).then(
+          ({ res, text }) => {
+            attempts.delete(model);
+            if (done) return res.body?.cancel?.();
+            if (res.ok) return finish(resolve, { res, model });
+            if (process.env.LYDIA_DEBUG) console.log(`[lydia] gemini ${model} -> ${res.status} ${text.slice(0, 300).replace(/\s+/g, ' ')}`);
+            last = Object.assign(new HttpError(res.status, text), { model });
+            if (res.status === 429 && quotaOf(text).none) blocked.add(model); // no free quota for this one on this account
+            else if (res.status === 503) resting.set(model, Date.now() + REST_MS); // overloaded right now
+            else if (!attempts.size) return finish(reject, last); // a real error, nothing else running
+            else return;
+            launch();
+          },
+          (err) => {
+            attempts.delete(model);
+            if (done) return;
+            if (signal.aborted) return finish(reject, err);
+            if (err?.message !== 'slow') {
+              if (!attempts.size) finish(reject, err); // offline
+              return;
+            }
+            if (process.env.LYDIA_DEBUG) console.log(`[lydia] gemini ${model} -> no answer in ${START_MS / 1000} s`);
+            resting.set(model, Date.now() + REST_MS);
+            last = Object.assign(new HttpError(503, ''), { model }); // explained as "overloaded"
+            launch();
+          },
+        );
+      };
+      signal.addEventListener('abort', () => finish(reject, signal.reason ?? new Error('aborted')), { once: true });
+      launch();
+    });
+  }
+
+  async stream(delta, signal) {
+    const { res, model } = this.model ? await this.only(this.model, signal) : await this.race(await geminiCandidates(this.key, ''), signal);
+    this.used = lastGood = model;
+    if (process.env.LYDIA_DEBUG) console.log(`[lydia] gemini ${model} answering (thinking: ${JSON.stringify(thinkingFor(model))})`);
     for await (const line of lines(res)) {
       if (!line.startsWith('data:')) continue;
       try {

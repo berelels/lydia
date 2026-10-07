@@ -985,6 +985,11 @@ refreshProvider();
 
 window.lydia.on('chat', (e) => {
   if (e.type === 'state') {
+    // Gemini busy: say why it takes long, until the reply starts.
+    if (e.state === 'retrying') {
+      if (current && !raw) current.innerHTML = `<span class="hint">${esc(t('chat.retrying'))}</span>`;
+      return;
+    }
     orb.classList.toggle('think', e.state === 'thinking');
     orb.classList.toggle('talk', e.state === 'speaking');
   } else if (e.type === 'delta' && current) {
