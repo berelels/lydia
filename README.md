@@ -7,7 +7,7 @@
 <p align="center">A friendly desktop companion for Linux that lives at the top of your screen, like a dynamic island.</p>
 
 <p align="center">
-  <img src="assets/demo.gif" alt="Lydia: the pill, idle animations, alerts, chat, Claude Code, colors, notifications and the setup wizard">
+  <img src="assets/demo.gif" alt="Lydia: the pill, idle animations, alerts, chat, colors, notifications and the setup wizard">
 </p>
 
 ## What she does
@@ -15,17 +15,16 @@
 - **Live system stats** in a small pill: RAM, CPU, disk, CPU and GPU temperature (AMD, Intel and NVIDIA).
 - **Opens when you reach for her**: move the mouse to the top of the screen and come down onto her.
 - **Warns you** about stuck processes, heat and low memory, with buttons to end or ignore them, and a task manager.
-- **Temporary chat** with Claude (your Claude Code login), Gemini (a free Google AI Studio key, kept in the system keyring) or a local Ollama model. Nothing is saved.
-- **Follows your Claude Code sessions** live: read the conversation, reply, start new sessions, and approve tool requests without going back to the terminal.
+- **Temporary chat** with Claude (your Claude account, through the `claude` command), Gemini (a free Google AI Studio key, kept in the system keyring) or a local Ollama model. Nothing is saved.
 - **Notifications that say what arrived**, and stay in the pill until you look.
 - **Stays out of the way**: a thin handle under a maximized window, a small notch in fullscreen, and she can hide during Steam games.
-- **Idle life**: she naps, listens to music, plays, and codes along when Claude Code is working. No mouth: she says everything with her eyes.
+- **Idle life**: she naps, reads, plays, waters her plant, solves a Rubik's cube, draws, has coffee in the morning and lunch at noon, and listens along when music plays. No mouth: she says everything with her eyes.
 - **Your colors**, and **English, Portuguese (Brazil) and Spanish**.
-- **A setup wizard** on first run: language, chat engine, Claude login, Gemini key, Claude Code hooks (showing the exact diff first), the GNOME extension and start on login.
+- **A setup wizard** on first run: language, chat engine, Claude login, Gemini key, the GNOME extension and start on login.
 
 ## Running it
 
-Requirements: Linux, Node.js 20+, Python 3. On X11 she uses `xprop` and `xdotool`; on GNOME (X11 or Wayland) the bundled GNOME Shell extension does that job. Claude Code, Ollama and a Gemini key are all optional.
+Requirements: Linux, Node.js 20+, Python 3. On X11 she uses `xprop` and `xdotool`; on GNOME (X11 or Wayland) the bundled GNOME Shell extension does that job. The `claude` command, Ollama and a Gemini key are all optional (one of them is enough for the chat).
 
 ```bash
 npm install

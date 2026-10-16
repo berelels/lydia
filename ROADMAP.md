@@ -15,14 +15,13 @@ ser fácil de descobrir. Em ordem de impacto.
 ## 2. Instalar em um clique
 - [ ] AppImage e .deb (electron-builder), depois Flatpak (Flathub).
 - [ ] Ícone e entrada no menu de aplicativos. (Iniciar com o sistema: já no assistente.)
-- [x] Assistente de configuração (primeira execução e menu): idioma, chat padrão (login do Claude, chave do Gemini, modelo do Ollama), hooks do Claude Code com diff, extensão do GNOME, preferências e iniciar com o sistema.
+- [x] Assistente de configuração (primeira execução e menu): idioma, chat padrão (login do Claude, chave do Gemini, modelo do Ollama), extensão do GNOME, preferências e iniciar com o sistema.
 
 ## 3. Alguém descobrir que ela existe
-- [ ] README com GIF/vídeo: a pill abrindo, alertas, chat, Code.
+- [x] README com GIF: a pill, animações, alertas, chat, cores, notificações, assistente.
 - [ ] Licença (MIT ou GPL, decisão do autor) e `CONTRIBUTING.md`.
 - [ ] Página simples (GitHub Pages) e posts (r/linux, r/unixporn, Hacker News).
 
 ## 4. Confiança
 - [x] Testes com `npm test` (node:test, sem dependências).
 - [ ] CI (GitHub Actions) rodando os testes.
-- [x] Instalar os hooks do Claude Code pela UI, mostrando o diff e pedindo confirmação (com testes).

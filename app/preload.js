@@ -2,7 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('lydia', {
   on: (channel, fn) => {
-    if (['state', 'stats', 'cursor', 'geometry', 'look', 'demo', 'layout', 'prefs', 'chat', 'view', 'codechat', 'code-owned'].includes(channel)) {
+    if (['state', 'stats', 'cursor', 'geometry', 'look', 'demo', 'layout', 'prefs', 'chat', 'view'].includes(channel)) {
       ipcRenderer.on(channel, (_e, payload) => fn(payload));
     }
   },
@@ -26,21 +26,12 @@ contextBridge.exposeInMainWorld('lydia', {
   geminiKey: (key) => ipcRenderer.invoke('gemini-key', key),
   openKeyPage: () => ipcRenderer.send('open-key-page'),
   openUrl: (url) => ipcRenderer.send('open-url', url),
-  codeDecide: (id, decision) => ipcRenderer.send('code-decide', id, decision),
-  codeFollow: (id) => ipcRenderer.send('code-follow', id),
-  codeNew: (req) => ipcRenderer.send('code-new', req),
-  codeReply: (req) => ipcRenderer.send('code-reply', req),
-  codeTerminal: (id) => ipcRenderer.send('code-terminal', id),
-  codeDirs: () => ipcRenderer.invoke('code-dirs'),
-  codePickDir: () => ipcRenderer.invoke('code-pick-dir'),
   tasks: (by) => ipcRenderer.invoke('tasks', by),
   taskKill: (name) => ipcRenderer.invoke('task-kill', name),
   setupStatus: () => ipcRenderer.invoke('setup-status'),
   setupClaudeLogin: () => ipcRenderer.invoke('setup-claude-login'),
   setupOllamaPull: () => ipcRenderer.invoke('setup-ollama-pull'),
   setupExtInstall: () => ipcRenderer.invoke('setup-ext-install'),
-  setupHooksPlan: (install) => ipcRenderer.invoke('setup-hooks-plan', install),
-  setupHooksApply: (install) => ipcRenderer.invoke('setup-hooks-apply', install),
   setupAutostart: (on) => ipcRenderer.invoke('setup-autostart', on),
   setupDone: () => ipcRenderer.send('setup-done'),
 });

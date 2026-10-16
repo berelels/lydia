@@ -6,7 +6,7 @@ i18n.setLang(i18n.resolve('system', navigator.languages)); // until the saved ch
 const fmt = (x) => i18n.num(x);
 const rand = (a, b) => a + Math.random() * (b - a);
 
-let state = { expanded: false, paused: false, issue: null, notice: null, code: { sessions: [], pending: [], hooks: false } };
+let state = { expanded: false, paused: false, issue: null, notice: null };
 let stats = null;
 
 // ---------- feed ----------
@@ -46,7 +46,7 @@ function render() {
 
   const now = $('feed-2');
   now.classList.toggle('alert', alerting);
-  if (state.notice && state.notice.kind !== 'ask') return showMessage(state.notice);
+  if (state.notice) return showMessage(state.notice);
   $('feed-1').textContent = '';
   if (state.issue) {
     // Something is wrong: say so, then what it is (the details live in the task manager).
@@ -55,7 +55,7 @@ function render() {
     renderActions(state.issue.actions);
     return;
   }
-  const news = [badges.code, badges.chat].filter(Boolean);
+  const news = [badges.chat].filter(Boolean);
   if (news.length) {
     // Something arrived while you were away: say what, with a way straight to it.
     now.textContent = news.length === 1 ? news[0].text : t('home.news');
@@ -71,10 +71,6 @@ function render() {
 /** One calm sentence about how things are. */
 function statusLine() {
   if (state.paused) return t('status.paused');
-  const c = state.code;
-  if (c.pending.length) return t('status.waiting', { project: c.pending[0].project });
-  const busy = c.sessions.find((x) => x.status === 'working');
-  if (busy) return t('status.working', { project: busy.project });
   return t('status.calm');
 }
 
@@ -134,12 +130,8 @@ function renderPill(advance) {
     return;
   }
   if (pillNote && Date.now() < pillNote.until) return setPill(pillNote.label, pillNote.value);
-  const c = state.code;
-  if (c.pending.length) return setPill('Code', t('pill.approve'));
-  const news = badges.code ?? badges.chat; // stays in the pill until you look at it
+  const news = badges.chat; // stays in the pill until you look at it
   if (news) return setPill(news.label, news.value);
-  const busy = c.sessions.find((x) => x.status === 'working');
-  if (busy) return setPill('Code', busy.project);
   const list = metrics();
   if (advance) pillIndex = (pillIndex + 1) % list.length;
   const [label, value] = list[pillIndex % list.length];
@@ -177,7 +169,7 @@ const drop = (...c) => () => orb.classList.remove(...c);
 // ---------- idle activities, and how she reacts when you come close ----------
 
 // Picked at random when idle. Music is not (she listens only when music really
-// plays), nor coding (only while Claude Code works).
+// plays).
 const ACTIVITIES = ['nap', 'game', 'book', 'plant', 'cube', 'draw', 'coffee', 'lunch'];
 
 /** The part of the day: coffee in the morning, lunch around noon, sleepy at night. */
@@ -232,14 +224,6 @@ function startActivity(name, ms) {
 function react() {
   const was = activity;
   if (was === 'none') return false;
-  if (was === 'code') {
-    play([
-      [0, add('startle')],
-      [450, drop('startle')],
-      [500, () => smile(800)],
-    ]);
-    return true;
-  }
   clearTimeout(activityTimer);
   if (was === 'music') {
     play([
@@ -292,10 +276,7 @@ window.lydia.on('state', (s) => {
   const newNotice = kind && kind !== state.notice?.kind;
   state = s;
   if (s.issue || s.paused) stopActivityQuietly();
-  syncCoding();
-  renderCode();
-  checkFinished();
-  if (following) renderSessionHead();
+  syncMusic();
   render();
   if (stats) renderStats();
   if (opened && react()) return;
@@ -350,7 +331,7 @@ window.lydia.on('prefs', (p) => {
     sw.setAttribute('aria-checked', String(!!p[sw.dataset.pref]));
   }
 });
-window.lydia.on('demo', (name) => [...ACTIVITIES, 'music', 'code'].includes(name) && startActivity(name, 10 * 60_000));
+window.lydia.on('demo', (name) => [...ACTIVITIES, 'music'].includes(name) && startActivity(name, 10 * 60_000));
 window.lydia.on('view', (v) => setView(v, false));
 
 // ---------- eyes follow the mouse ----------
@@ -481,22 +462,20 @@ applyLook(DEFAULT);
 // ---------- views and input ----------
 
 // Same heights as VIEW_H in main.js (it shapes the clickable area from them).
-const VIEW_H = { home: 200, look: 330, code: 340, codechat: 460, tasks: 330, chat: 440, setup: 440 };
+const VIEW_H = { home: 200, look: 290, tasks: 330, chat: 440, setup: 440 };
 function setView(view, tell = true) {
   if (!(view in VIEW_H)) return;
   const was = island.dataset.view;
   island.dataset.view = view;
   document.documentElement.style.setProperty('--panel-h', `${VIEW_H[view]}px`);
-  const tab = { tasks: 'home', codechat: 'code' }[view] ?? view;
+  const tab = { tasks: 'home' }[view] ?? view;
   for (const el of document.querySelectorAll('.tab[data-view]')) el.classList.toggle('active', el.dataset.view === tab);
   if (tell && view !== was) window.lydia.setView(view);
   if (view === 'tasks') startTasks();
   else stopTasks();
   if (view === 'chat') focusChat();
   if (view === 'setup' && was !== 'setup') startSetup();
-  if (view !== 'codechat') window.lydia.codeFollow(null);
   if (view === 'chat') badges.chat = null;
-  if (view === 'code' || view === 'codechat') badges.code = null;
   renderBadge();
 }
 for (const tab of document.querySelectorAll('.tab[data-view]')) tab.addEventListener('click', () => setView(tab.dataset.view));
@@ -530,9 +509,6 @@ function translatePage() {
   render();
   if (stats) renderStats();
   renderPill(false);
-  renderCode();
-  $('code-model').innerHTML = ''; // labels like "Padrão": refilled by renderSessionHead
-  if (following) renderSessionHead();
   if (island.dataset.view === 'tasks') loadTasks();
   refreshProvider().then(() => !messages.querySelector('.msg') && hello());
   if (island.dataset.view === 'setup') renderSetup();
@@ -541,17 +517,16 @@ function translatePage() {
 // ---------- notifications: a reply came while you were looking elsewhere ----------
 
 // What arrived, until it is seen: { label, value } for the pill, text and a button for the panel.
-const badges = { chat: null, code: null };
-const BADGE_MARK = { ask: '!', code: '✓', chat: '…' }; // the dot says what kind it is
+const badges = { chat: null };
+const BADGE_MARK = { chat: '…' }; // the dot says what kind it is
 let hadNews = false;
 let pillNote = null; // { label, value, until }: a moment in the pill when it arrives
-let lastStatus = new Map();
 function renderBadge() {
-  const kind = state.code.pending.length ? 'ask' : badges.code ? 'code' : badges.chat ? 'chat' : '';
+  const kind = badges.chat ? 'chat' : '';
   $('badge').className = 'badge' + (kind ? ` on ${kind}` : '');
   $('badge').textContent = BADGE_MARK[kind] ?? '';
   island.dataset.badge = kind; // the thin handle shows it as its color
-  const news = !!(badges.code || badges.chat);
+  const news = !!badges.chat;
   if (news !== hadNews) window.lydia.news((hadNews = news)); // behind a window she peeks out instead of a thin line
 }
 function notifyBadge(kind, label, value, extra) {
@@ -563,20 +538,6 @@ function notifyBadge(kind, label, value, extra) {
   setTimeout(() => orb.classList.remove('notify'), 1200);
 }
 const looking = (view) => state.expanded && island.dataset.view === view;
-/** Sessions that just finished a turn while you weren't watching them. */
-function checkFinished() {
-  for (const s of state.code.sessions) {
-    const was = lastStatus.get(s.id);
-    const watching = looking('codechat') && following === s.id;
-    if (was === 'working' && s.status === 'idle' && !watching) {
-      const text = t('code.finished', { project: s.project });
-      notifyBadge('code', 'Code', text, { text, see: t('news.see_code'), open: () => openSession(s.id) });
-    }
-  }
-  lastStatus = new Map(state.code.sessions.map((s) => [s.id, s.status]));
-  renderBadge();
-}
-
 // ---------- task manager ----------
 
 let tasksBy = 'cpu';
@@ -630,221 +591,21 @@ for (const b of document.querySelectorAll('#tasks-sort button')) {
 $('open-tasks').addEventListener('click', () => setView('tasks'));
 $('tasks-back').addEventListener('click', () => setView('home'));
 
-// ---------- Claude Code ----------
+// ---------- music ----------
 
-const status = (s) => (s in { working: 1, waiting: 1, idle: 1 } ? t(`code.state.${s}`) : '');
-let approvalHtml = () => '';
-let codingFromClaude = false;
 let musicFromPlayer = false;
 
-/** She codes along while any Claude Code session is working. */
-function syncCoding() {
-  const c = state.code;
-  const working = c.sessions.some((x) => x.status === 'working') && !c.pending.length && !state.issue && !state.paused;
-  if (working && activity !== 'code') {
-    startActivity('code', 6 * 60 * 60_000);
-    codingFromClaude = true;
-  } else if (!working && codingFromClaude && activity === 'code') {
-    codingFromClaude = false;
-    stopActivityQuietly();
-  }
-  // Music playing in a player (a video or a film doesn't count): she listens
-  // along, unless she is busy coding with Claude.
+/** Music playing in a player (a video or a film doesn't count): she listens along. */
+function syncMusic() {
   const music = !!state.music && !state.issue && !state.paused && !gone;
-  if (music && !working && activity !== 'music') {
+  if (music && activity !== 'music') {
     startActivity('music', 6 * 60 * 60_000);
     musicFromPlayer = true;
   } else if (!music && musicFromPlayer) {
     musicFromPlayer = false;
     if (activity === 'music') stopActivityQuietly();
   }
-  const dot = $('code-dot');
-  dot.className = 'dot' + (c.pending.length ? ' waiting' : working ? ' working' : '');
 }
-
-function renderCode() {
-  const c = state.code;
-  const pendingBy = new Map(c.pending.map((p) => [p.sessionId, p]));
-  $('code-summary').textContent = c.sessions.length ? t('code.recent') : '';
-  if (!c.sessions.length && !c.pending.length) {
-    $('code-list').innerHTML = c.hooks
-      ? `<div class="empty">${t('code.empty')}</div>`
-      : `<div class="empty">${t('code.no_hooks')}</div>`;
-    return;
-  }
-  approvalHtml = (p) => `<div class="approval">
-      ${t(p.question ? 'code.question' : 'code.may_i')}
-      <div><code>${esc(p.summary)}</code></div>
-      <div class="actions">${
-        p.question
-          ? `<button data-id="${p.id}" data-d="terminal" class="primary">${t('code.answer_terminal')}</button>`
-          : `<button data-id="${p.id}" data-d="allow" class="primary">${t('code.allow')}</button><button data-id="${p.id}" data-d="deny">${t('code.deny')}</button>${p.owned ? '' : `<button data-id="${p.id}" data-d="terminal">${t('code.in_terminal')}</button>`}`
-      }</div></div>`;
-  $('code-list').innerHTML = c.sessions
-    .map((x) => {
-      const steps = x.steps.map((st, i) => `<div class="${i === x.steps.length - 1 && !st.done ? 'cur' : ''}">${st.done ? '✓' : '›'} ${esc(st.text)}</div>`).join('');
-      const p = pendingBy.get(x.id);
-      return `<div class="session" data-session="${esc(x.id)}">
-        <div class="session-head"><i class="status-dot ${x.status}"></i><b>${esc(x.title || x.project)}</b><span class="muted">${x.title ? esc(x.project) : ''}</span><span class="state">${status(x.status)}</span><button class="icon-btn term" data-term="${esc(x.id)}" title="${t('code.open_terminal')}"><svg viewBox="0 0 24 24"><path class="stroke" d="M4 6h16v12H4zM7.5 10l2.5 2-2.5 2M12 14.5h4"/></svg></button><span class="open">${t('code.view')}</span></div>
-        ${steps ? `<div class="steps">${steps}</div>` : ''}
-        ${p ? approvalHtml(p) : ''}
-      </div>`;
-    })
-    .join('');
-}
-$('code-list').addEventListener('click', (e) => {
-  const b = e.target.closest('button[data-id]');
-  if (b) return window.lydia.codeDecide(b.dataset.id, b.dataset.d);
-  const term = e.target.closest('button[data-term]');
-  if (term) return window.lydia.codeTerminal(term.dataset.term);
-  const card = e.target.closest('[data-session]');
-  if (card) openSession(card.dataset.session);
-});
-
-// ---------- one Claude Code session, live (read from its transcript) ----------
-
-let following = null;
-const live = $('codechat');
-function openSession(id) {
-  following = id;
-  live.innerHTML = `<div class="hello">${t('code.loading')}</div>`;
-  renderSessionHead();
-  setView('codechat');
-  window.lydia.codeFollow(id);
-}
-function renderSessionHead() {
-  const s = state.code.sessions.find((x) => x.id === following);
-  if (s) $('codechat-title').textContent = s.title || s.project;
-  $('codechat-state').textContent = s ? `${s.title ? s.project + ' · ' : ''}${status(s.status)}` : '';
-  const p = state.code.pending.find((x) => x.sessionId === following);
-  $('codechat-approval').innerHTML = p ? approvalHtml(p) : '';
-  if (!$('code-model').options.length) fillSelect($('code-model'), state.code.models ?? [], '');
-  // Someone else's session: a reply goes to a copy (two programs never write one session).
-  const fork = !!s && !s.owned;
-  $('code-fork-note').hidden = !fork;
-  codeInput.placeholder = t(fork ? 'code.reply_fork' : 'code.reply');
-}
-const kTok = (n) => (n >= 1e6 ? `${fmt(n / 1e6)} ${t('code.million')}` : n >= 1e3 ? `${Math.round(n / 1e3)} ${t('code.thousand')}` : String(n));
-function renderUsage(u) {
-  if (!u) return ($('codechat-usage').textContent = '');
-  const cost = u.cost ? ` · US$ ${i18n.num(u.cost, 2)}` : '';
-  $('codechat-usage').textContent = t('code.usage', { out: kTok(u.output), in: kTok(u.input + u.cache) }) + cost;
-  $('codechat-usage').title = t('code.usage_tip', { in: u.input, cache: u.cache, out: u.output }) + (u.cost ? t('code.cost_tip') : '');
-}
-$('codechat-approval').addEventListener('click', (e) => {
-  const b = e.target.closest('button[data-id]');
-  if (b) window.lydia.codeDecide(b.dataset.id, b.dataset.d);
-});
-$('codechat-terminal').addEventListener('click', () => following && window.lydia.codeTerminal(following));
-
-const codeInput = $('code-input');
-let replyTicket = null;
-function sendReply() {
-  const text = codeInput.value.trim();
-  if (!text || !following) return;
-  replyTicket = String(Date.now());
-  window.lydia.codeReply({ id: following, text, model: $('code-model').value, ticket: replyTicket });
-  const d = document.createElement('div');
-  d.className = 'msg me';
-  d.innerHTML = md(text);
-  live.append(d);
-  live.scrollTop = live.scrollHeight;
-  codeInput.value = '';
-  codeInput.style.height = '';
-}
-$('code-composer').addEventListener('submit', (e) => {
-  e.preventDefault();
-  sendReply();
-});
-codeInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendReply();
-  }
-});
-codeInput.addEventListener('input', () => {
-  codeInput.style.height = '';
-  codeInput.style.height = `${Math.min(codeInput.scrollHeight, 78)}px`;
-});
-codeInput.addEventListener('mousedown', () => window.lydia.chatFocus());
-
-// Lydia's own sessions report here: a fork's new id, errors, working / idle.
-window.lydia.on('code-owned', (e) => {
-  if (e.type === 'id' && e.ticket && (e.ticket === replyTicket || e.ticket === newTicket)) {
-    // a reply to someone else's session continues in a copy: follow the copy
-    const fresh = e.ticket === newTicket;
-    newTicket = replyTicket = null;
-    following = e.id;
-    if (fresh) live.innerHTML = `<div class="hello">${t('code.starting')}</div>`;
-    setTimeout(() => window.lydia.codeFollow(e.id), 1500); // let the transcript appear
-  } else if (e.type === 'error' && (e.id === following || e.ticket === replyTicket || e.ticket === newTicket)) {
-    const d = document.createElement('div');
-    d.className = 'msg err';
-    d.innerHTML = md(e.error);
-    live.append(d);
-    live.scrollTop = live.scrollHeight;
-  }
-});
-
-// ---------- new session ----------
-
-let newTicket = null;
-$('code-new-open').addEventListener('click', async () => {
-  const form = $('new-session');
-  form.hidden = !form.hidden;
-  if (form.hidden) return;
-  const dirs = await window.lydia.codeDirs();
-  const opts = dirs.map((d) => ({ id: d, label: d.replace(/^\/home\/[^/]+/, '~') }));
-  fillSelect($('ns-dir'), [...opts, { id: '__pick', label: t('ns.pick') }], dirs[0] ?? '__pick');
-  fillSelect($('ns-model'), state.code.models ?? [], '');
-  window.lydia.chatFocus();
-  setTimeout(() => $('ns-text').focus(), 60);
-});
-$('ns-dir').addEventListener('change', async (e) => {
-  if (e.target.value !== '__pick') return;
-  const dir = await window.lydia.codePickDir();
-  if (!dir) return (e.target.selectedIndex = 0);
-  const o = document.createElement('option');
-  o.value = dir;
-  o.textContent = dir.replace(/^\/home\/[^/]+/, '~');
-  e.target.prepend(o);
-  e.target.value = dir;
-});
-$('ns-text').addEventListener('mousedown', () => window.lydia.chatFocus());
-$('new-session').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const text = $('ns-text').value.trim();
-  const cwd = $('ns-dir').value;
-  if (!text || !cwd || cwd === '__pick') return;
-  newTicket = String(Date.now());
-  window.lydia.codeNew({ cwd, model: $('ns-model').value, text, ticket: newTicket });
-  $('new-session').hidden = true;
-  $('ns-text').value = '';
-  following = null;
-  live.innerHTML = `<div class="hello">${t('code.opening')}</div>`;
-  const d = document.createElement('div');
-  d.className = 'msg me';
-  d.innerHTML = md(text);
-  live.append(d);
-  $('codechat-title').textContent = cwd.split('/').pop();
-  setView('codechat');
-});
-window.lydia.on('codechat', (e) => {
-  if (e.id !== following) return;
-  renderUsage(e.usage);
-  const atBottom = live.scrollHeight - live.scrollTop - live.clientHeight < 40;
-  if (e.reset) live.innerHTML = e.items.length ? '' : `<div class="hello">${t('code.nothing')}</div>`;
-  for (const it of e.items) {
-    const d = document.createElement('div');
-    d.className = `msg ${it.role === 'user' ? 'me' : it.role === 'tool' ? 'tool' : 'her'}`;
-    if (it.role === 'tool') d.textContent = it.text;
-    else d.innerHTML = md(it.text);
-    live.append(d);
-  }
-  while (live.children.length > 300) live.firstChild.remove();
-  if (e.reset || atBottom) live.scrollTop = live.scrollHeight;
-});
-$('codechat-back').addEventListener('click', () => setView('code'));
 
 // ---------- chat (temporary: nothing is saved, it all goes on "Nova conversa") ----------
 
@@ -1057,18 +818,16 @@ hello();
 
 // ---------- setup wizard (first run, or "Configurar a Lydia…" in the menu) ----------
 
-const SETUP_STEPS = ['hi', 'chat', 'code', 'desktop', 'done'];
+const SETUP_STEPS = ['hi', 'chat', 'desktop', 'done'];
 let setupStep = 0;
 let setupInfo = null;
 let setupKey = ''; // what the status looked like at the last redraw
 let setupTimer = 0;
-let hooksPlan = null; // the settings.json change being shown, before the user says yes
 let claudeWaiting = false; // the login terminal is open
 let extError = '';
 
 function startSetup() {
   setupStep = 0;
-  hooksPlan = null;
   claudeWaiting = false;
   extError = '';
   setupInfo = null;
@@ -1144,22 +903,6 @@ const SETUP_VIEWS = {
       </div>`;
   },
 
-  code: (i) => {
-    let body;
-    if (!i.claude.installed) body = `<span class="warn">${t('setup.code_missing')}</span>`;
-    else if (hooksPlan?.error) body = `<span class="warn">${t('setup.hooks_bad', { path: '~/.claude/settings.json' })}</span>`;
-    else if (hooksPlan) {
-      const lines = hooksPlan.diff.map((l) => `<span class="${l.op === '+' ? 'add' : l.op === '-' ? 'del' : ''}">${l.op} ${esc(l.line)}</span>`).join('\n');
-      body = `<span>${t('setup.hooks_diff', { path: esc(hooksPlan.path) })}</span><pre class="diff">${lines}</pre>
-        <div class="status">${btn('hooks-apply', hooksPlan.install ? t('setup.hooks_install') : t('setup.hooks_remove'))}${btn('hooks-cancel', t('setup.hooks_cancel'), true)}</div>`;
-    } else if (i.hooks) body = `<div class="status">${ok(t('setup.hooks_on'))}<button class="link small" data-act="hooks-plan" data-v="0">${t('setup.hooks_remove')}</button></div>`;
-    else body = `<div class="status">${btn('hooks-plan', t('setup.hooks_show'))}</div>`;
-    return `
-      <p class="s-title">${t('setup.code')}</p>
-      ${hooksPlan ? '' : `<p class="s-text">${t('setup.code_text')}</p>`}
-      <div class="s-section">${body}</div>`;
-  },
-
   desktop: (i) => {
     const e = i.ext;
     const state = {
@@ -1179,7 +922,6 @@ const SETUP_VIEWS = {
 
   done: (i) => {
     const who = i.provider === 'ollama' ? 'Ollama' : providerName(i.provider);
-    const code = !i.claude.installed ? 'off' : i.hooks ? 'on' : 'partial';
     const desk = ['active', 'enabled', 'unsupported'].includes(i.ext.state) || i.ext.backend === 'x11' ? 'on' : 'off';
     const item = (cls, text) => `<li class="${cls === 'off' ? 'off' : ''}">${esc(text)}</li>`;
     return `
@@ -1187,7 +929,6 @@ const SETUP_VIEWS = {
       <p class="s-text">${t('setup.done_text')}</p>
       <ul class="summary">
         ${item('on', t('setup.sum_chat', { who }))}
-        ${item(code, t('setup.sum_code', { state: t(`setup.sum_${code}`) }))}
         ${item(desk, t('setup.sum_desktop', { state: t(desk === 'on' ? 'setup.sum_on' : 'setup.sum_off') }))}
       </ul>`;
   },
@@ -1210,7 +951,6 @@ function renderSetup() {
 
 function setupGo(delta) {
   setupStep = Math.max(0, Math.min(SETUP_STEPS.length - 1, setupStep + delta));
-  hooksPlan = null;
   setupKey = '';
   renderSetup();
   setupRefresh();
@@ -1252,18 +992,7 @@ async function setupAct(act, el) {
     else await setupRefresh();
   } else if (act === 'key-get') window.lydia.openKeyPage();
   else if (act === 'ollama-pull') window.lydia.setupOllamaPull();
-  else if (act === 'hooks-plan') {
-    hooksPlan = { ...(await window.lydia.setupHooksPlan(el.dataset.v !== '0')), install: el.dataset.v !== '0' };
-    redraw();
-  } else if (act === 'hooks-apply') {
-    await window.lydia.setupHooksApply(hooksPlan.install);
-    hooksPlan = null;
-    await setupRefresh();
-    redraw();
-  } else if (act === 'hooks-cancel') {
-    hooksPlan = null;
-    redraw();
-  } else if (act === 'ext-install') {
+  else if (act === 'ext-install') {
     const r = await window.lydia.setupExtInstall();
     extError = r.ok ? '' : t('setup.ext_failed');
     await setupRefresh();

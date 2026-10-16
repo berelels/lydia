@@ -1,5 +1,5 @@
-const { app, BrowserWindow, Menu, ipcMain, screen, safeStorage, shell, dialog, clipboard } = require('electron');
-const { execFile, spawn } = require('child_process');
+const { app, BrowserWindow, Menu, ipcMain, screen, safeStorage, shell, clipboard } = require('electron');
+const { execFile } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -7,11 +7,8 @@ const config = require('./config');
 const i18n = require('./i18n');
 const { t } = i18n;
 const sys = require('./monitor');
-const { ChatSession } = require('./chat');
+const { ChatSession, MODELS } = require('./chat');
 const { GeminiChat, OllamaChat, ollamaModels, geminiModels, stopOllama } = require('./providers');
-const { Transcripts } = require('./transcripts');
-const { OwnedSession, MODELS } = require('./code-sessions');
-const { Bridge } = require('./bridge');
 const { pickDesktop } = require('./desktop');
 const setup = require('./setup');
 const media = require('./media');
@@ -41,7 +38,7 @@ const GEOM = {
   glow: 24, // room for the shadow around the visible island
 };
 // Height of the open panel for each view (the renderer uses the same numbers).
-const VIEW_H = { home: 200, look: 330, code: 340, codechat: 460, tasks: 330, chat: 440, setup: 440 };
+const VIEW_H = { home: 200, look: 290, tasks: 330, chat: 440, setup: 440 };
 const HOVER_IN_MS = 90;
 const HOVER_IN_FULLSCREEN_MS = 350; // reaching for a video's controls shouldn't pop her open
 const HOVER_OUT_MS = 450;
@@ -127,7 +124,7 @@ function relayout(force = false) {
   // browser's address bar...): only a thin handle, unless something needs you
   // (then her eyes peek out). Fullscreen has no panel: she hangs from the screen
   // edge, as a small notch unless something is wrong.
-  const needsYou = !!currentIssue() || bridge.pending.size > 0;
+  const needsYou = !!currentIssue();
   const covered = !state.fullscreen && state.covered && !state.ignoreCovered;
   // Unseen news shows as the full pill (it says what arrived) until you look.
   const lip = covered && !needsYou && !state.news;
@@ -136,7 +133,7 @@ function relayout(force = false) {
   let compact = (state.fullscreen && !currentIssue()) || (covered && needsYou);
   let hidden = false;
   const peek = gameMode() && state.peeking;
-  if (hideMode() && !peek && !['alert', 'ask'].includes(state.notice?.kind)) {
+  if (hideMode() && !peek && state.notice?.kind !== 'alert') {
     hidden = true; // out of sight above the screen edge; alerts still slide in
     top = -(GEOM.pill.h + GEOM.glow);
     compact = true;
@@ -239,7 +236,6 @@ function pushState() {
     music: state.music,
     issue: currentIssue(),
     notice: n && { kind: n.kind, title: n.title, lines: n.lines, actions: n.actions ?? [] },
-    code: codeSnapshot(),
   });
 }
 
@@ -330,111 +326,6 @@ function endChat({ keepProvider = false } = {}) {
   send('chat', { type: 'reset' });
 }
 
-// ---------- Claude Code ----------
-
-const hooksInstalled = setup.hooksInstalled;
-
-// Live view of every Claude Code session, read from its transcript (no hooks needed).
-let liveSessions = [];
-const transcripts = new Transcripts({
-  onSessions: (list) => {
-    liveSessions = list;
-    if (alive()) pushState();
-  },
-  onItems: (e) => send('codechat', e),
-});
-
-/** Sessions from the transcripts, with what the hooks know (status, steps) when installed. */
-function codeSnapshot() {
-  const hooks = bridge.snapshot();
-  const byId = new Map(hooks.sessions.map((s) => [s.id, s]));
-  const sessions = liveSessions.map((t) => {
-    const h = byId.get(t.id);
-    byId.delete(t.id);
-    return {
-      id: t.id,
-      project: t.project,
-      title: t.title,
-      status: h?.status === 'waiting' ? 'waiting' : t.working || h?.status === 'working' ? 'working' : 'idle',
-      steps: h?.steps ?? [],
-    };
-  });
-  const all = [...sessions, ...byId.values()].map((s) => {
-    const own = owned.get(s.id);
-    return { ...s, owned: !!own, status: own?.busy ? 'working' : s.status, cwd: liveSessions.find((t) => t.id === s.id)?.cwd ?? '' };
-  });
-  // Lydia's sessions that have not written their transcript yet.
-  for (const [id, own] of owned) {
-    if (!all.some((s) => s.id === id)) all.unshift({ id, project: path.basename(own.cwd), title: '', status: own.busy ? 'working' : 'idle', steps: [], owned: true, cwd: own.cwd });
-  }
-  return { sessions: all.slice(0, 3), pending: hooks.pending, hooks: hooksInstalled(), models: MODELS() };
-}
-
-// ---------- Claude Code sessions run by Lydia (new ones, and replies) ----------
-
-const owned = new Map(); // session id -> OwnedSession
-const pendingOwned = new Set(); // started, id not known yet
-
-function runOwned({ cwd, model, resume, fork, text, ticket }) {
-  const s = new OwnedSession({
-    cwd,
-    model,
-    resume,
-    fork,
-    onEvent: (e) => {
-      if (e.type === 'id') {
-        for (const [k, v] of owned) if (v === s && k !== e.id) owned.delete(k);
-        owned.set(e.id, s);
-        pendingOwned.delete(s);
-        send('code-owned', { type: 'id', ticket, id: e.id });
-      } else send('code-owned', { ...e, ticket, id: s.id });
-      pushState();
-    },
-  });
-  if (s.id) owned.set(s.id, s);
-  else pendingOwned.add(s);
-  try {
-    s.send(text);
-  } catch (err) {
-    send('code-owned', { type: 'error', ticket, error: err.message });
-  }
-  return s;
-}
-
-/** The folders of recent sessions, for "Nova sessão". */
-function recentDirs() {
-  const dirs = [...new Set(liveSessionsAll().map((s) => s.cwd).filter(Boolean))];
-  return dirs.filter((d) => !d.includes('/.config/Claude/scratch-workspaces/') && fs.existsSync(d)).slice(0, 8);
-}
-function liveSessionsAll() {
-  return transcripts.recent ?? liveSessions;
-}
-
-/** Resume a session in a terminal, where the user can keep going with the full CLI. */
-function openInTerminal(id) {
-  const s = liveSessions.find((x) => x.id === id);
-  const own = owned.get(id);
-  const cwd = s?.cwd || own?.cwd || os.homedir();
-  own?.close(); // one writer at a time
-  owned.delete(id);
-  const claude = require('./chat').findClaude() || 'claude';
-  spawn('gnome-terminal', [`--working-directory=${cwd}`, '--', claude, '--resume', id], { detached: true, stdio: 'ignore' }).unref();
-  giveFocusBack();
-}
-
-const bridge = new Bridge({
-  onChange: () => alive() && pushState(),
-  onEvent: (e) => {
-    if (e.type !== 'permission' || state.paused) return;
-    // A question or an approval waiting: open on the Code view, even over the
-    // fullscreen notch; during a game it only slides the pill in.
-    send('view', 'code');
-    state.view = 'code';
-    const r = e.request;
-    notify('ask', t(r.question ? 'ask.question' : 'ask.may_i', { project: r.project }), [r.summary], 110);
-  },
-});
-
 // ---------- task manager ----------
 
 function ownProcess(pid) {
@@ -475,7 +366,7 @@ function notify(kind, title, lines, seconds = cfg.bubble_seconds, actions = []) 
   // In fullscreen only real problems open the panel; the rest waits for a hover.
   // During a game nothing opens it: an alert only slides the pill in.
   if (hideMode()) relayout();
-  else if (kind === 'alert' || kind === 'ask' || !state.fullscreen) setExpanded(true);
+  else if (kind === 'alert' || !state.fullscreen) setExpanded(true);
   pushState();
 }
 
@@ -677,11 +568,6 @@ function showMenu() {
   Menu.buildFromTemplate([
     { label: t('menu.setup'), click: openSetup },
     { label: t('menu.ram'), click: () => notify('info', t('ram.now'), ramLines(), 8) },
-    {
-      label: t('menu.open_last'),
-      enabled: liveSessions.length > 0,
-      click: () => openInTerminal(liveSessions[0].id),
-    },
     { type: 'separator' },
     { label: t('menu.test_ram'), click: testAlert },
     { label: t('menu.test_stuck'), click: testStuck },
@@ -784,30 +670,6 @@ ipcMain.on('chat-send', (_e, text) => {
   }
 });
 ipcMain.on('chat-new', () => endChat());
-ipcMain.on('code-follow', (_e, id) => (typeof id === 'string' ? transcripts.follow(id) : transcripts.unfollow()));
-const okModel = (m) => (MODELS().some((x) => x.id === m) ? m : '');
-ipcMain.on('code-new', (_e, req) => {
-  if (!req || typeof req.cwd !== 'string' || !fs.existsSync(req.cwd) || typeof req.text !== 'string' || !req.text.trim()) return;
-  runOwned({ cwd: req.cwd, model: okModel(req.model), text: req.text.trim(), ticket: String(req.ticket ?? '') });
-});
-ipcMain.on('code-reply', (_e, req) => {
-  if (!req || typeof req.id !== 'string' || typeof req.text !== 'string' || !req.text.trim()) return;
-  const own = owned.get(req.id);
-  if (own && !own.busy && (!req.model || okModel(req.model) === own.model)) return void own.send(req.text.trim());
-  if (own?.busy) return send('code-owned', { type: 'error', id: req.id, error: t('reply.busy') });
-  // Not Lydia's (or a new model): continue in a copy, so a session still open
-  // in the app or a terminal is never written to by two programs at once.
-  const s = liveSessions.find((x) => x.id === req.id);
-  const cwd = s?.cwd || own?.cwd;
-  if (!cwd || !fs.existsSync(cwd)) return send('code-owned', { type: 'error', id: req.id, error: t('reply.no_dir') });
-  runOwned({ cwd, model: okModel(req.model) || own?.model, resume: req.id, fork: true, text: req.text.trim(), ticket: String(req.ticket ?? '') });
-});
-ipcMain.on('code-terminal', (_e, id) => typeof id === 'string' && /^[\w-]+$/.test(id) && openInTerminal(id));
-ipcMain.handle('code-dirs', () => recentDirs());
-ipcMain.handle('code-pick-dir', async () => {
-  const r = await dialog.showOpenDialog(win, { properties: ['openDirectory'], defaultPath: os.homedir() });
-  return r.canceled ? null : r.filePaths[0];
-});
 ipcMain.handle('chat-info', chatInfo);
 
 // ---------- setup wizard ----------
@@ -827,7 +689,6 @@ ipcMain.handle('setup-status', async () => {
     gemini: { key: info.geminiKey, secure: info.secure },
     ollama: await setup.ollamaStatus(info.ollama),
     ext: { ...(await setup.extensionStatus(desktop.name)), backend: desktop.name },
-    hooks: setup.hooksInstalled(),
     autostart: setup.autostartOn(),
     prefs: prefs(),
   };
@@ -842,16 +703,6 @@ ipcMain.handle('setup-ollama-pull', () => {
   return setup.openTerminal(os.homedir(), ['sh', '-c', '(ollama serve >/dev/null 2>&1 &); sleep 2; ollama pull llama3.2; echo; read -p "Enter ↵ " x']);
 });
 ipcMain.handle('setup-ext-install', () => setup.installExtension().catch(() => ({ ok: false })));
-ipcMain.handle('setup-hooks-plan', (_e, install) => setup.hooksPlan(!!install));
-ipcMain.handle('setup-hooks-apply', (_e, install) => {
-  try {
-    const r = setup.applyHooks(!!install);
-    pushState();
-    return r;
-  } catch (err) {
-    return { ok: false, error: err.message };
-  }
-});
 ipcMain.handle('setup-autostart', (_e, on) => {
   try {
     return setup.setAutostart(!!on, app);
@@ -903,12 +754,6 @@ ipcMain.handle('gemini-key', (_e, key) => {
     endChat({ keepProvider: true });
   }
   return { error };
-});
-ipcMain.on('code-decide', (_e, id, decision) => {
-  if (!['allow', 'deny', 'terminal'].includes(decision)) return;
-  bridge.decide(id, decision);
-  if (state.notice?.kind === 'ask') state.notice = null;
-  pushState();
 });
 ipcMain.handle('tasks', (_e, by) => {
   const mine = new Set([process.pid, ...app.getAppMetrics().map((m) => m.pid)]);
@@ -1029,8 +874,6 @@ app.whenReady().then(() => {
   };
   createWindow();
   startDesktop();
-  bridge.start();
-  transcripts.start();
   every(50, tick);
   let asking = false; // one MPRIS look at a time
   every(4000, async () => {
@@ -1054,12 +897,8 @@ app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   timers.forEach(clearInterval);
-  bridge.stop();
-  transcripts.stop();
   chat?.close();
   stopOllama();
-  for (const s of owned.values()) s.close();
-  for (const s of pendingOwned) s.close();
   desktop.stop();
   try {
     if (fs.readFileSync(pidFile, 'utf8').trim() === String(process.pid)) fs.unlinkSync(pidFile);

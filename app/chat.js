@@ -55,8 +55,7 @@ class ChatSession {
       '--system-prompt', persona(),
     ];
     if (this.model) args.push('--model', this.model);
-    // LYDIA_CHAT tells Lydia's own Claude Code hooks to ignore this process.
-    this.proc = spawn(bin, args, { cwd: dir, env: { ...process.env, LYDIA_CHAT: '1' }, stdio: ['pipe', 'pipe', 'pipe'] });
+    this.proc = spawn(bin, args, { cwd: dir, stdio: ['pipe', 'pipe', 'pipe'] });
     this.proc.stdout.on('data', (d) => this.read(d));
     this.proc.stderr.on('data', () => {});
     this.proc.on('error', (err) => this.fail(err.message));
@@ -124,4 +123,13 @@ function friendly(msg = '') {
   return msg || t('claude.failed');
 }
 
-module.exports = { ChatSession, persona, findClaude };
+// Model aliases the claude command understands; '' lets it pick its default.
+const MODELS = () => [
+  { id: '', label: t('model.default') },
+  { id: 'fable', label: 'Fable' },
+  { id: 'opus', label: 'Opus' },
+  { id: 'sonnet', label: 'Sonnet' },
+  { id: 'haiku', label: 'Haiku' },
+];
+
+module.exports = { ChatSession, MODELS, persona, findClaude };
