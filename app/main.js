@@ -1,5 +1,5 @@
-const { app, BrowserWindow, Menu, ipcMain, screen, safeStorage, shell, clipboard } = require('electron');
-const { execFile } = require('child_process');
+const { app, BrowserWindow, Menu, ipcMain, screen, safeStorage, shell, clipboard, nativeTheme } = require('electron');
+const { execFile, execFileSync, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -790,6 +790,46 @@ ipcMain.on('set-look', (_e, look) => {
   } catch {}
 });
 
+// ---------- light or dark, like the system ----------
+
+/**
+ * GNOME says it two ways: the color scheme (prefer-dark / prefer-light /
+ * default) and, with "default", the GTK theme's name (ZorinGrey-Light,
+ * Adwaita-dark...). Followed live, so an automatic day/night switch moves her
+ * too. The page picks its palette from prefers-color-scheme, which follows this.
+ */
+function systemDark() {
+  const get = (key) => {
+    try {
+      return execFileSync('gsettings', ['get', 'org.gnome.desktop.interface', key], { timeout: 1500 }).toString();
+    } catch {
+      return null;
+    }
+  };
+  const scheme = get('color-scheme');
+  if (scheme === null) return null; // no GNOME settings: let Chromium ask the system
+  if (scheme.includes('prefer-dark')) return true;
+  if (scheme.includes('prefer-light')) return false;
+  return /dark/i.test(get('gtk-theme') ?? '');
+}
+function applyTheme() {
+  const dark = systemDark();
+  nativeTheme.themeSource = dark === null ? 'system' : dark ? 'dark' : 'light';
+}
+function watchTheme() {
+  applyTheme();
+  const p = spawn('gsettings', ['monitor', 'org.gnome.desktop.interface'], { stdio: ['ignore', 'pipe', 'ignore'] });
+  p.on('error', () => {});
+  let timer = 0;
+  p.stdout.on('data', (chunk) => {
+    if (!/color-scheme|gtk-theme/.test(String(chunk))) return;
+    clearTimeout(timer);
+    timer = setTimeout(applyTheme, 200); // both keys often change together
+  });
+  themeWatcher = p;
+}
+let themeWatcher = null;
+
 // ---------- the desktop: pointer, fullscreen windows, a window below the panel ----------
 
 let desktop = { name: 'starting', hasPointer: false, activeWindow: (cb) => cb(null), activate() {}, focusSelf: (w) => w.focus(), stop() {} };
@@ -844,6 +884,7 @@ const pidFile = path.join(process.env.XDG_RUNTIME_DIR || app.getPath('temp'), 'l
 function quit() {
   timers.forEach(clearInterval);
   desktop.stop();
+  themeWatcher?.kill();
   app.quit();
   setTimeout(() => app.exit(0), 1500).unref(); // don't hang if a child process is gone
 }
@@ -872,6 +913,7 @@ app.whenReady().then(() => {
       ignore: cfg.stuck_process_ignore,
     }),
   };
+  watchTheme(); // before the window, so it never flashes the wrong palette
   createWindow();
   startDesktop();
   every(50, tick);
@@ -900,6 +942,7 @@ app.on('before-quit', () => {
   chat?.close();
   stopOllama();
   desktop.stop();
+  themeWatcher?.kill();
   try {
     if (fs.readFileSync(pidFile, 'utf8').trim() === String(process.pid)) fs.unlinkSync(pidFile);
   } catch {}
