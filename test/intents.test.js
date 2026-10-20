@@ -46,3 +46,16 @@ for (const [text, tool, args] of cases) {
 test('questions and chit-chat are not commands', () => {
   for (const text of ['qual a capital da França?', 'me conta uma piada', 'what is love', 'oi, tudo bem?']) assert.strictEqual(parse(text), null, text);
 });
+
+// Gemini rejects the whole request (400) if one tool declaration is invalid.
+test('tool declarations are valid for Gemini function calling', () => {
+  const { declarations } = require('../app/assistant/tools');
+  for (const d of declarations()) {
+    assert.match(d.name, /^[a-z_]+$/);
+    for (const [k, p] of Object.entries(d.parameters.properties)) {
+      assert.ok(['string', 'integer', 'boolean', 'number'].includes(p.type), `${d.name}.${k} type`);
+      if (p.enum) assert.ok(p.enum.every((v) => typeof v === 'string' && v.length > 0), `${d.name}.${k} has an empty enum value`);
+    }
+    for (const r of d.parameters.required ?? []) assert.ok(r in d.parameters.properties, `${d.name} requires unknown ${r}`);
+  }
+});

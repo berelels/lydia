@@ -7,7 +7,7 @@ const config = require('./config');
 const i18n = require('./i18n');
 const { t } = i18n;
 const sys = require('./monitor');
-const { ChatSession, MODELS } = require('./chat');
+const { ChatSession, MODELS, findClaude } = require('./chat');
 const { GeminiChat, OllamaChat, ollamaModels, geminiModels, stopOllama } = require('./providers');
 const { pickDesktop } = require('./desktop');
 const setup = require('./setup');
@@ -269,11 +269,26 @@ let chatProvider = null; // this conversation's engine; a new conversation goes 
 let chatModel = ''; // '' = the engine's default
 const provider = () => chatProvider ?? cfg.chat_provider;
 let chatIdle = 0;
+let lastAsked = ''; // the question being answered (re-asked if the engine changes)
+let fellBack = false;
 function chatSession() {
   if (!chat) {
     const events = {
       onDelta: (text) => send('chat', { type: 'delta', text }),
       onDone: (r) => {
+        // Every Gemini model out of quota or overloaded: answer with Claude instead, once.
+        if (r.error && [429, 503].includes(r.status) && r.auto && provider() === 'gemini' && lastAsked && !fellBack && findClaude()) {
+          fellBack = true;
+          chat?.close();
+          chat = null;
+          chatProvider = 'claude';
+          chatModel = '';
+          send('chat', { type: 'note', text: t('chat.fell_back', { who: 'Claude' }) });
+          try {
+            return void chatSession().send(lastAsked);
+          } catch {}
+        }
+        fellBack = false;
         send('chat', { type: 'done', ...r });
         const after = afterChat;
         afterChat = null;
@@ -687,7 +702,8 @@ ipcMain.on('chat-send', async (_e, text) => {
     return send('chat', { type: 'done', text: r.say });
   }
   try {
-    chatSession().send(text.trim().slice(0, 8000));
+    lastAsked = text.trim().slice(0, 8000);
+    chatSession().send(lastAsked);
   } catch (err) {
     send('chat', { type: 'done', text: '', error: err.message });
   }
@@ -752,7 +768,8 @@ async function handle(text, { spoken }) {
   setVoice('thinking');
   afterChat = (r) => answer(r.error ? r.error : r.text, { spoken, heard: text, inChat: true });
   try {
-    chatSession().send(text.slice(0, 8000));
+    lastAsked = text.slice(0, 8000);
+    chatSession().send(lastAsked);
   } catch (err) {
     afterChat = null;
     answer(err.message, { spoken, heard: text });
@@ -764,7 +781,8 @@ async function answer(text, { spoken, heard, inChat = false, kind = 'info' }) {
   if (!inChat || !state.expanded || state.view !== 'chat') notify(kind, short.length > 140 ? `${short.slice(0, 137)}…` : short, heard ? [`“${heard}”`] : [], Math.min(14, 4 + short.length / 18));
   if (!spoken) return setVoice('idle');
   setVoice('speaking');
-  await voice.speak(short, lang());
+  const most = 8000 + short.length * 120; // ~ far longer than it takes to say it
+  await Promise.race([voice.speak(short, lang()), new Promise((r) => setTimeout(r, most))]);
   if (state.voice === 'speaking') setVoice('idle');
 }
 

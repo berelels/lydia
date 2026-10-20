@@ -36,7 +36,7 @@ class HistoryChat {
       })
       .catch((err) => {
         this.history.pop(); // the question goes unanswered: let it be asked again
-        if (err.name !== 'AbortError') this.finish({ text: '', error: this.explain(err) });
+        if (err.name !== 'AbortError') this.finish({ text: '', error: this.explain(err), status: err.status, auto: !this.model });
       });
     return true;
   }
@@ -139,6 +139,17 @@ function quotaOf(body) {
   } catch {
     return { none: false, daily: false, retry: 0, model: '' };
   }
+}
+
+/**
+ * A model out of quota (429): each Gemini model has its own, so the next one
+ * is tried. It rests until the quota comes back: no free quota at all ->
+ * never this run; daily -> some hours; per minute -> what Google says (or 1 min).
+ */
+function quotaRest(model, body) {
+  const q = quotaOf(body);
+  if (q.none) return blocked.add(model);
+  resting.set(model, Date.now() + (q.daily ? 6 * 3600_000 : Math.max(60, q.retry || 60) * 1000));
 }
 
 /** Text models this key can use, newest first (for the model picker). */
@@ -252,7 +263,7 @@ class GeminiChat extends HistoryChat {
             if (res.ok) return finish(resolve, { res, model });
             if (process.env.LYDIA_DEBUG) console.log(`[lydia] gemini ${model} -> ${res.status} ${text.slice(0, 300).replace(/\s+/g, ' ')}`);
             last = Object.assign(new HttpError(res.status, text), { model });
-            if (res.status === 429 && quotaOf(text).none) blocked.add(model); // no free quota for this one on this account
+            if (res.status === 429) quotaRest(model, text); // this model's quota is used up: the next one has its own
             else if (res.status === 503) resting.set(model, Date.now() + REST_MS); // overloaded right now
             else if (!attempts.size) return finish(reject, last); // a real error, nothing else running
             else return;
@@ -433,7 +444,7 @@ async function geminiGenerate(key, body) {
           const text = await res.text();
           if (process.env.LYDIA_DEBUG) console.log(`[lydia] gemini tools ${model} -> ${res.status} ${text.slice(0, 200).replace(/\s+/g, ' ')}`);
           last = Object.assign(new HttpError(res.status, text), { model });
-          if (res.status === 429 && quotaOf(text).none) blocked.add(model);
+          if (res.status === 429) quotaRest(model, text);
           else if (res.status === 503) resting.set(model, Date.now() + REST_MS);
           else if (!running.size) return finish(reject, last);
           else return;

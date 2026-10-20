@@ -783,7 +783,7 @@ refreshProvider();
 window.lydia.on('chat', (e) => {
   if (e.type === 'state') {
     // Gemini busy: say why it takes long, until the reply starts.
-    if (e.state === 'retrying') {
+    if (e.state === 'retrying' || e.state === 'note') {
       if (current && !raw) current.innerHTML = `<span class="hint">${esc(t('chat.retrying'))}</span>`;
       return;
     }
@@ -793,11 +793,14 @@ window.lydia.on('chat', (e) => {
     raw += e.text;
     current.innerHTML = md(raw);
     messages.scrollTop = messages.scrollHeight;
+  } else if (e.type === 'note') {
+    if (current && !raw) current.innerHTML = `<span class="hint">${esc(e.text)}</span>`;
+    refreshProvider(); // the engine switch shows in the Claude / Gemini / Local buttons
   } else if (e.type === 'done') {
     if (!looking('chat') && !e.error) notifyBadge('chat', 'Chat', t('chat.new_reply'), { text: t('news.chat'), see: t('news.see_chat'), open: () => setView('chat') });
     chatBusy = false;
     $('chat-send').disabled = false;
-    orb.classList.remove('think', 'talk');
+    if (voiceState !== 'speaking') orb.classList.remove('think', 'talk'); // the reply is over (unless she is saying it)
     if (current) {
       current.classList.remove('typing');
       if (e.error) {

@@ -319,7 +319,7 @@ const TOOLS = {
   play_music: {
     risk: 'low',
     description: 'Play music: a song, an artist, an album or a playlist. On Spotify when it is installed (or when asked), else YouTube Music.',
-    params: { query: { type: 'string', description: 'What to play, e.g. "AC/DC", "Back in Black", "lo-fi playlist"' }, app: { type: 'string', enum: ['', 'spotify', 'youtube'], description: 'Where, if the user said it' } },
+    params: { query: { type: 'string', description: 'What to play, e.g. "AC/DC", "Back in Black", "lo-fi playlist"' }, app: { type: 'string', enum: ['spotify', 'youtube'], description: 'Only if the user said where' } },
     required: ['query'],
     run: playMusic,
   },
