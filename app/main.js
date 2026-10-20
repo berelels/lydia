@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, screen, safeStorage, shell, clipboard, nativeTheme } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, screen, safeStorage, shell, clipboard, nativeTheme, globalShortcut } = require('electron');
 const { execFile, execFileSync, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -12,6 +12,11 @@ const { GeminiChat, OllamaChat, ollamaModels, geminiModels, stopOllama } = requi
 const { pickDesktop } = require('./desktop');
 const setup = require('./setup');
 const media = require('./media');
+const voice = require('./assistant/voice');
+const brain = require('./assistant/brain');
+const { TOOLS, findApp } = require('./assistant/tools');
+const intents = require('./assistant/intents');
+const voiceInstall = require('./assistant/install');
 
 // Under Wayland, run through XWayland: a native Wayland window can't place
 // itself at the top of the screen or stay above the others. Chromium picks its
@@ -61,6 +66,7 @@ const state = {
   pokeUntil: 0, // SIGHUP: act as if the mouse were on her for a moment
   news: false, // a reply came while you were away, not seen yet
   music: false, // a music player (not a video) is playing: she listens along
+  voice: 'idle', // idle | listening | thinking | speaking
 };
 let hoverSince = 0;
 let leaveSince = 0;
@@ -127,7 +133,7 @@ function relayout(force = false) {
   const needsYou = !!currentIssue();
   const covered = !state.fullscreen && state.covered && !state.ignoreCovered;
   // Unseen news shows as the full pill (it says what arrived) until you look.
-  const lip = covered && !needsYou && !state.news;
+  const lip = covered && !needsYou && !state.news && state.voice === 'idle';
   let top = state.fullscreen ? 0 : layout.panel;
   const topOpen = top;
   let compact = (state.fullscreen && !currentIssue()) || (covered && needsYou);
@@ -267,7 +273,12 @@ function chatSession() {
   if (!chat) {
     const events = {
       onDelta: (text) => send('chat', { type: 'delta', text }),
-      onDone: (r) => send('chat', { type: 'done', ...r }),
+      onDone: (r) => {
+        send('chat', { type: 'done', ...r });
+        const after = afterChat;
+        afterChat = null;
+        after?.(r);
+      },
       onState: (s) => send('chat', { type: 'state', state: s }),
     };
     if (provider() === 'gemini') {
@@ -436,6 +447,11 @@ function alivePid(pid) {
 /** Buttons on a notice: stop a stuck process (or its service), or ignore it. */
 function runAction(id) {
   const [verb, arg] = [id.slice(0, id.indexOf(':')), id.slice(id.indexOf(':') + 1)];
+  if (verb === 'voice' && arg === 'unmute') {
+    state.notice = null;
+    return void voice.unmuteMic().then(toggleVoice);
+  }
+  if (verb === 'voice') return void confirmPending(arg === 'yes');
   if (verb === 'ignore') {
     watch.hogs.ignore.add(arg);
     cfg.stuck_process_ignore = [...watch.hogs.ignore];
@@ -566,6 +582,7 @@ function tick() {
 
 function showMenu() {
   Menu.buildFromTemplate([
+    { label: t('menu.voice'), ...(voiceKey ? { accelerator: voiceKey } : {}), click: toggleVoice },
     { label: t('menu.setup'), click: openSetup },
     { label: t('menu.ram'), click: () => notify('info', t('ram.now'), ramLines(), 8) },
     { type: 'separator' },
@@ -661,8 +678,14 @@ ipcMain.on('news', (_e, on) => {
   relayout();
 });
 ipcMain.on('chat-focus', takeFocus);
-ipcMain.on('chat-send', (_e, text) => {
+ipcMain.on('chat-send', async (_e, text) => {
   if (typeof text !== 'string' || !text.trim()) return;
+  // "abre o YouTube" typed in the chat does it, like said aloud.
+  const rule = intents.parse(text);
+  if (rule && TOOLS[rule.tool]) {
+    const r = await doTool(rule.tool, rule.args, { spoken: false, heard: text });
+    return send('chat', { type: 'done', text: r.say });
+  }
   try {
     chatSession().send(text.trim().slice(0, 8000));
   } catch (err) {
@@ -671,6 +694,164 @@ ipcMain.on('chat-send', (_e, text) => {
 });
 ipcMain.on('chat-new', () => endChat());
 ipcMain.handle('chat-info', chatInfo);
+
+// ---------- voice: hear, understand, act, answer ----------
+
+let voiceKey = null; // the global shortcut that worked
+let afterChat = null; // what to do with the next chat reply (speak it, for a spoken question)
+let listening = null; // the recording in progress
+let pending = null; // a tool waiting for the user's yes: { tool, args, spoken }
+
+function setVoice(v, extra = {}) {
+  state.voice = v;
+  send('voice', { state: v, ...extra });
+  relayout();
+}
+const lang = () => i18n.lang();
+
+/** Ctrl+Alt+Space, or her mic button: start listening, or stop and use what was said. */
+async function toggleVoice() {
+  if (listening) return listening.stop();
+  if (state.voice === 'speaking') voice.shutUp();
+  if (!voice.can.hear()) {
+    notify('info', t('voice.not_installed'), [t('voice.not_installed_hint')], 10);
+    return;
+  }
+  voice.shutUp();
+  // A muted microphone records only silence: say so, with a way to turn it on.
+  if (await voice.micMuted()) {
+    notify('info', t('voice.mic_muted'), [t('voice.mic_muted_hint')], 12, [{ id: 'voice:unmute', label: t('voice.unmute'), primary: true }]);
+    return;
+  }
+  setVoice('listening');
+  voice.warmUp(); // loads the voice while you talk, so the answer isn't delayed
+  listening = voice.listen({ onLevel: (level) => send('voice', { state: 'listening', level }) });
+  const file = await listening.done;
+  listening = null;
+  if (!file) return setVoice('idle');
+  setVoice('thinking');
+  const r = await voice.transcribe(file, lang());
+  if (r.error || !r.text) {
+    setVoice('idle');
+    return notify('info', t(r.error === 'stt-failed' ? 'voice.stt_failed' : 'voice.didnt_hear'), [], 5);
+  }
+  send('voice', { state: 'thinking', heard: r.text });
+  await handle(r.text, { spoken: true });
+}
+
+/** What was said (or typed) -> an action, an answer, or a question for the chat. */
+async function handle(text, { spoken }) {
+  // a pending "close Brave?" answered by voice
+  if (pending && /^(sim|pode|isso|claro|yes|yeah|sure|ok|si|dale|confirmo)\b/.test(intents.normalize(text))) return confirmPending(true);
+  if (pending && /^(nao|não|cancela|no|nope|cancel|deixa)\b/.test(intents.normalize(text))) return confirmPending(false);
+  const d = await brain.decide(text, { geminiKey: geminiKey() });
+  if (d.kind === 'tool') return doTool(d.tool, d.args, { spoken, heard: text });
+  if (d.kind === 'say') return answer(d.text, { spoken, heard: text });
+  // a question: the chat engine answers, the chat keeps it, and she says it
+  send('chat-voice', { text });
+  setVoice('thinking');
+  afterChat = (r) => answer(r.error ? r.error : r.text, { spoken, heard: text, inChat: true });
+  try {
+    chatSession().send(text.slice(0, 8000));
+  } catch (err) {
+    afterChat = null;
+    answer(err.message, { spoken, heard: text });
+  }
+}
+
+async function answer(text, { spoken, heard, inChat = false, kind = 'info' }) {
+  const short = String(text ?? '').replace(/\s+/g, ' ').trim();
+  if (!inChat || !state.expanded || state.view !== 'chat') notify(kind, short.length > 140 ? `${short.slice(0, 137)}…` : short, heard ? [`“${heard}”`] : [], Math.min(14, 4 + short.length / 18));
+  if (!spoken) return setVoice('idle');
+  setVoice('speaking');
+  await voice.speak(short, lang());
+  if (state.voice === 'speaking') setVoice('idle');
+}
+
+/** Runs a tool; one that needs a yes asks first (buttons, or "sim" out loud). */
+async function doTool(name, args, { spoken, heard }) {
+  const tool = TOOLS[name];
+  if (tool.risk === 'confirm') {
+    pending = { name, args, spoken };
+    const q = tool.confirm({ ...args, name: (name === 'close_app' && findApp(args.name)?.label) || args.name });
+    notify('info', q, heard ? [`“${heard}”`] : [], 20, [
+      { id: 'voice:yes', label: t('voice.yes'), primary: true },
+      { id: 'voice:no', label: t('voice.no') },
+    ]);
+    if (spoken) {
+      setVoice('speaking');
+      await voice.speak(q, lang());
+    }
+    setVoice('idle');
+    return { ok: true, say: q };
+  }
+  let r;
+  try {
+    r = await (LOCAL_TOOLS[name] ?? tool.run)(args ?? {});
+  } catch {
+    r = { ok: false, say: t('do.cant') };
+  }
+  await answer(r.say, { spoken, heard, kind: r.ok ? 'ok' : 'info' });
+  return r;
+}
+
+async function confirmPending(yes) {
+  const p = pending;
+  pending = null;
+  if (!p) return;
+  if (state.notice) state.notice = null;
+  if (!yes) return answer(t('voice.cancelled'), { spoken: p.spoken });
+  let r;
+  try {
+    r = await (LOCAL_TOOLS[p.name] ?? TOOLS[p.name].run)(p.args);
+  } catch {
+    r = { ok: false, say: t('do.cant') };
+  }
+  return answer(r.say, { spoken: p.spoken, kind: r.ok ? 'ok' : 'info' });
+}
+
+// Tools that need what only main has: processes, notifications, the monitors.
+const LOCAL_TOOLS = {
+  close_app: ({ name }) => {
+    // "calculadora" -> the Calculator app -> its program, gnome-calculator, among the running ones
+    const app = findApp(name);
+    const wanted = [intents.normalize(name), app && intents.normalize(app.bin), app && intents.normalize(app.name)].filter(Boolean);
+    const groups = watch.hogs.tasks('ram', 999).filter((g) => !g.self);
+    const group = groups.find((g) => wanted.includes(intents.normalize(g.name))) ?? groups.find((g) => wanted.some((w) => { const n = intents.normalize(g.name); return n.length >= 4 && w.length >= 4 && (n.includes(w) || w.includes(n)); }));
+    const label = app?.label ?? name;
+    if (!group) return { ok: false, say: t('do.not_running', { name: label }) };
+    const r = killApp(group.name);
+    return r.ok ? { ok: true, say: t('do.closed', { name: label }) } : { ok: false, say: r.why };
+  },
+  timer: ({ seconds }) => {
+    const s = Math.max(1, Math.min(24 * 3600, Math.round(Number(seconds))));
+    setTimeout(() => {
+      notify('alert', t('do.timer_done'), [], 12);
+      voice.speak(t('do.timer_done'), lang());
+    }, s * 1000);
+    const human = s >= 3600 ? t('do.hours', { n: Math.round(s / 360) / 10 }) : s >= 60 ? t('do.minutes', { n: Math.round(s / 6) / 10 }) : t('do.seconds', { n: s });
+    return { ok: true, say: t('do.timer_set', { time: human.replace('.', i18n.lang() === 'en' ? '.' : ',') }) };
+  },
+  system_status: () => {
+    const m = sys.memory();
+    const temp = sys.temperatures();
+    const parts = [t('do.status_ram', { n: Math.round(m.percent) }), t('do.status_cpu', { n: Math.round(sys.cpu()) })];
+    if (temp.cpu != null) parts.push(t('do.status_temp', { n: Math.round(temp.cpu) }));
+    return { ok: true, say: `${currentIssue() ? t('do.status_issue') : t('do.status_ok')} ${parts.join(', ')}.` };
+  },
+};
+
+ipcMain.on('voice-toggle', () => toggleVoice());
+ipcMain.handle('voice-unmute', () => voice.unmuteMic()); // the user's own button
+let voiceInstalling = false;
+// Only from the wizard's "Install" button, after it showed what is downloaded and from where.
+ipcMain.handle('voice-install', async () => {
+  if (voiceInstalling) return { ok: false };
+  voiceInstalling = true;
+  const r = await voiceInstall.install(i18n.lang(), (e) => send('voice-install', e), { hear: !voice.can.hear(), speak: !voice.can.speak() });
+  voiceInstalling = false;
+  return r;
+});
 
 // ---------- setup wizard ----------
 
@@ -690,6 +871,7 @@ ipcMain.handle('setup-status', async () => {
     ollama: await setup.ollamaStatus(info.ollama),
     ext: { ...(await setup.extensionStatus(desktop.name)), backend: desktop.name },
     autostart: setup.autostartOn(),
+    voice: { hear: voice.can.hear(), speak: voice.can.speak(), plan: voiceInstall.PLAN.filter((p) => !voice.can[p.part]()), key: voiceKey, micMuted: await voice.micMuted(), installing: voiceInstalling },
     prefs: prefs(),
   };
 });
@@ -916,6 +1098,16 @@ app.whenReady().then(() => {
   watchTheme(); // before the window, so it never flashes the wrong palette
   createWindow();
   startDesktop();
+  // Her shortcut, or the first free one (Claude's app takes Ctrl+Alt+Space, for one).
+  for (const key of [cfg.voice_shortcut, 'Super+Alt+Space', 'Control+Super+Space', 'Super+Shift+Space', 'Alt+Shift+Space']) {
+    try {
+      if (key && globalShortcut.register(key, toggleVoice)) {
+        voiceKey = key;
+        break;
+      }
+    } catch {}
+  }
+  if (process.env.LYDIA_DEBUG) console.log(`[lydia] voice shortcut: ${voiceKey ?? 'none free'}`);
   every(50, tick);
   let asking = false; // one MPRIS look at a time
   every(4000, async () => {
@@ -943,6 +1135,9 @@ app.on('before-quit', () => {
   stopOllama();
   desktop.stop();
   themeWatcher?.kill();
+  globalShortcut.unregisterAll();
+  voice.stopVoice();
+  listening?.stop();
   try {
     if (fs.readFileSync(pidFile, 'utf8').trim() === String(process.pid)) fs.unlinkSync(pidFile);
   } catch {}
@@ -965,6 +1160,7 @@ process.on('SIGUSR2', () => {
     state.pokeUntil = Date.now() + 3500; // as if the mouse were on her for a moment
     setExpanded(true);
   } else if (verb === 'demo') send('demo', arg);
+  else if (verb === 'falar') handle(cmd.slice(6).trim(), { spoken: true }); // as if said aloud (tests without a mic)
   else if (verb === 'limpar') {
     state.notice = null; // recordings: drop the current notice
     pushState();

@@ -110,7 +110,8 @@ async function geminiCandidates(key, wanted) {
 function thinkingFor(model) {
   if (/gemini-2\.5-flash/.test(model)) return { thinkingBudget: 0 };
   if (/gemini-(\d+(\.\d+)?-)?pro/.test(model)) return /2\.5/.test(model) ? null : { thinkingLevel: 'low' };
-  if (/gemini-(3|flash-latest|flash-lite-latest)/.test(model)) return { thinkingLevel: 'minimal' };
+  if (/-latest$/.test(model)) return { thinkingLevel: 'low' }; // the aliases may point at a model without "minimal"
+  if (/gemini-3/.test(model)) return { thinkingLevel: 'minimal' };
   return null;
 }
 
@@ -377,4 +378,80 @@ class OllamaChat extends HistoryChat {
   }
 }
 
-module.exports = { GeminiChat, OllamaChat, ollamaModels, geminiModels, stopOllama };
+/**
+ * One non-streaming Gemini call (for function calling): the candidates in
+ * order, skipping overloaded or silent ones like the chat does.
+ * -> { parts: [...], model } or throws HttpError.
+ */
+async function geminiGenerate(key, body) {
+  // The same race as the chat: the best model starts, the next joins after HEDGE_MS
+  // (at most 3 at once), the first good answer wins.
+  const models = await geminiCandidates(key, '');
+  return new Promise((resolve, reject) => {
+    const running = new Map();
+    let next = 0;
+    let done = false;
+    let last = null;
+    let hedge = 0;
+    const finish = (fn, v) => {
+      if (done) return;
+      done = true;
+      clearTimeout(hedge);
+      for (const ac of running.values()) ac.abort();
+      fn(v);
+    };
+    const launch = () => {
+      clearTimeout(hedge);
+      if (done) return;
+      if (next >= models.length) return void (!running.size && finish(reject, last ?? new HttpError(503, '')));
+      const model = models[next++];
+      const ac = new AbortController();
+      running.set(model, ac);
+      hedge = setTimeout(() => running.size < 3 && launch(), HEDGE_MS);
+      const config = thinkingFor(model);
+      const call = (thinking) =>
+        fetch(`${GEMINI}/models/${encodeURIComponent(model)}:generateContent`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
+          body: JSON.stringify({ ...body, ...(thinking && config ? { generationConfig: { ...(body.generationConfig ?? {}), thinkingConfig: config } } : {}) }),
+          signal: ac.signal,
+        });
+      const timer = setTimeout(() => ac.abort(new Error('slow')), START_MS);
+      // a model that doesn't take that thinking setting: ask it again without
+      call(true)
+        .then(async (res) => (res.status === 400 && config && /thinking/i.test(await res.clone().text()) ? call(false) : res))
+        .then(async (res) => {
+          clearTimeout(timer);
+          running.delete(model);
+          if (done) return;
+          if (res.ok) {
+            lastGood = model;
+            const data = await res.json();
+            if (process.env.LYDIA_DEBUG) console.log(`[lydia] gemini tools ${model} -> ok`);
+            return finish(resolve, { parts: data.candidates?.[0]?.content?.parts ?? [], model });
+          }
+          const text = await res.text();
+          if (process.env.LYDIA_DEBUG) console.log(`[lydia] gemini tools ${model} -> ${res.status} ${text.slice(0, 200).replace(/\s+/g, ' ')}`);
+          last = Object.assign(new HttpError(res.status, text), { model });
+          if (res.status === 429 && quotaOf(text).none) blocked.add(model);
+          else if (res.status === 503) resting.set(model, Date.now() + REST_MS);
+          else if (!running.size) return finish(reject, last);
+          else return;
+          launch();
+        })
+        .catch((err) => {
+          clearTimeout(timer);
+          running.delete(model);
+          if (done) return;
+          if (err?.message !== 'slow' && err?.cause?.message !== 'slow' && ac.signal.reason?.message !== 'slow') return void (!running.size && finish(reject, err));
+          if (process.env.LYDIA_DEBUG) console.log(`[lydia] gemini tools ${model} -> no answer in ${START_MS / 1000} s`);
+          resting.set(model, Date.now() + REST_MS);
+          last = Object.assign(new HttpError(503, ''), { model });
+          launch();
+        });
+    };
+    launch();
+  });
+}
+
+module.exports = { GeminiChat, OllamaChat, ollamaModels, geminiModels, stopOllama, geminiGenerate };

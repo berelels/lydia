@@ -22,6 +22,13 @@ ser fácil de descobrir. Em ordem de impacto.
 - [ ] Licença (MIT ou GPL, decisão do autor) e `CONTRIBUTING.md`.
 - [ ] Página simples (GitHub Pages) e posts (r/linux, r/unixporn, Hacker News).
 
+## 5. Assistente por voz
+- [x] Comandos do dia a dia por regras (pt, en, es), sem internet; o resto pelo Gemini com ferramentas.
+- [x] Ferramentas: abrir app/site, pesquisar, YouTube, volume, mudo, mídia, timer, hora, bloquear tela, tema, status, fechar app (pede confirmação).
+- [x] Atalho global, botão de microfone, aviso de microfone mudo, instalador da voz no assistente (whisper.cpp + Piper).
+- [ ] Palavra de ativação ("Oi Lydia").
+- [ ] Atalho no Wayland (pela extensão do GNOME), janelas, digitar texto.
+
 ## 4. Confiança
 - [x] Testes com `npm test` (node:test, sem dependências).
 - [ ] CI (GitHub Actions) rodando os testes.

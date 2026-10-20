@@ -877,3 +877,19 @@ html, body {
 #lydia.startle .sticks { animation: none; opacity: 0; transform: translate(6px, 24px) rotate(30deg); transition: transform .45s ease-in, opacity .3s .15s; }
 #lydia.startle .eye-dot { animation: none; }
 #lydia.startle .eye-happy { animation: none; }
+
+/* ---------- voice ---------- */
+/* listening: eyes wide and attentive, a ring that breathes with your voice */
+#lydia.listen .eye { scale: 1.15; }
+#lydia.listen .face { --lx: 0 !important; --ly: -0.5 !important; }
+#lydia::after {
+  content: ""; position: absolute; inset: -8%; border-radius: 50%; pointer-events: none;
+  border: 2px solid var(--lav); opacity: 0; scale: .9;
+  transition: opacity .2s, scale .12s linear;
+}
+#lydia.listen::after { opacity: calc(.35 + var(--lv, 0) * .65); scale: calc(1 + var(--lv, 0) * .25); }
+#island.listening:not(.expanded) { box-shadow: 0 0 0 2px color-mix(in srgb, var(--lav) 60%, transparent), 0 6px 14px rgba(0, 0, 0, .35); }
+#btn-mic.on { background: color-mix(in srgb, var(--lav) 30%, transparent); }
+#btn-mic.on svg { fill: var(--lav); }
+#btn-mic.on svg .stroke { stroke: var(--lav); }
+.plan { margin: 0 0 8px; padding-left: 18px; font-size: 12px; color: var(--soft); line-height: 1.6; }

@@ -15,6 +15,7 @@
 - **Live system stats** in a small pill: RAM, CPU, disk, CPU and GPU temperature (AMD, Intel and NVIDIA).
 - **Opens when you reach for her**: move the mouse to the top of the screen and come down onto her.
 - **Warns you** about stuck processes, heat and low memory, with buttons to end or ignore them, and a task manager.
+- **Talk to her** (Super+Alt+Space or the mic button): she opens apps and sites, searches, sets the volume, controls music, sets timers, locks the screen, switches the theme, and answers questions out loud. Everyday commands work offline; speech is transcribed on your computer with whisper.cpp and never saved. Actions that could lose work (closing an app) ask first.
 - **Temporary chat** with Claude (your Claude account, through the `claude` command), Gemini (a free Google AI Studio key, kept in the system keyring) or a local Ollama model. Nothing is saved.
 - **Notifications that say what arrived**, and stay in the pill until you look.
 - **Stays out of the way**: a thin handle under a maximized window, a small notch in fullscreen, and she can hide during Steam games.

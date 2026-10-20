@@ -125,6 +125,7 @@ function renderPill(advance) {
     setPill(t('pill.paused'), '');
     return;
   }
+  if (voiceState === 'listening' || voiceState === 'thinking') return setPill(t(voiceState === 'listening' ? 'voice.listening' : 'voice.thinking'), '');
   if (state.issue) {
     setPill(...state.issue.pill); // stay on the problem instead of cycling
     return;
@@ -818,7 +819,8 @@ hello();
 
 // ---------- setup wizard (first run, or "Configurar a Lydia…" in the menu) ----------
 
-const SETUP_STEPS = ['hi', 'chat', 'desktop', 'done'];
+const SETUP_STEPS = ['hi', 'chat', 'voice', 'desktop', 'done'];
+let voiceStep = null; // the install's current step, or { error }
 let setupStep = 0;
 let setupInfo = null;
 let setupKey = ''; // what the status looked like at the last redraw
@@ -838,7 +840,7 @@ function startSetup() {
   setupTimer = setInterval(() => {
     if (island.dataset.view !== 'setup') return clearInterval(setupTimer);
     const step = SETUP_STEPS[setupStep];
-    if ((step === 'chat' && claudeWaiting) || step === 'desktop') setupRefresh();
+    if ((step === 'chat' && claudeWaiting) || step === 'desktop' || step === 'voice') setupRefresh();
   }, 3000);
 }
 
@@ -903,6 +905,25 @@ const SETUP_VIEWS = {
       </div>`;
   },
 
+  voice: (i) => {
+    const v = i.voice;
+    const ready = v.hear && v.speak;
+    const plan = v.plan.map((p) => `<li>${esc(p.what)} · ${esc(p.from)} · ${p.mb} MB</li>`).join('');
+    const total = v.plan.reduce((a, p) => a + p.mb, 0);
+    const parts = `<div class="status">${v.speak ? ok(t('setup.voice_speak_ok')) : `<span>${t('setup.voice_speak_no')}</span>`}</div><div class="status">${v.hear ? ok(t('setup.voice_hear_ok')) : `<span>${t('setup.voice_hear_no')}</span>`}</div>`;
+    let body;
+    if (ready) body = `<div class="status">${ok(t('setup.voice_ready'))}${btn('voice-test', t('setup.voice_test'))}</div>`;
+    else if (v.installing || (voiceStep && !voiceStep.error)) body = `<div class="status"><span>${t(`setup.voice_step_${voiceStep?.step ?? 'whisper-get'}`)}</span></div>`;
+    else
+      body = `${parts}<span class="s-text">${t('setup.voice_plan', { mb: total })}</span><ul class="plan">${plan}</ul>
+        <div class="status">${btn('voice-install', t('setup.voice_install', { mb: total }))}<span class="s-err">${esc(voiceStep?.error ?? '')}</span></div>`;
+    return `
+      <p class="s-title">${t('setup.voice')}</p>
+      <p class="s-text">${t('setup.voice_text', { key: (v.key ?? '—').replace('Super', 'Super').replace('Space', t('key.space')) })}</p>
+      <div class="s-section">${body}</div>
+      ${v.micMuted ? `<div class="s-section"><span class="warn">${t('voice.mic_muted')}</span> ${btn('voice-unmute', t('voice.unmute'), true)}</div>` : ''}`;
+  },
+
   desktop: (i) => {
     const e = i.ext;
     const state = {
@@ -929,6 +950,7 @@ const SETUP_VIEWS = {
       <p class="s-text">${t('setup.done_text')}</p>
       <ul class="summary">
         ${item('on', t('setup.sum_chat', { who }))}
+        ${item(i.voice.hear && i.voice.speak ? 'on' : 'off', t('setup.sum_voice', { state: t(i.voice.hear && i.voice.speak ? 'setup.sum_on' : 'setup.sum_off') }))}
         ${item(desk, t('setup.sum_desktop', { state: t(desk === 'on' ? 'setup.sum_on' : 'setup.sum_off') }))}
       </ul>`;
   },
@@ -956,6 +978,11 @@ function setupGo(delta) {
   setupRefresh();
   $('setup-body').scrollTop = 0;
 }
+window.lydia.on('voice-install', (e) => {
+  if (e.step === 'all' || e.step === 'error') return;
+  voiceStep = { step: e.step };
+  if (SETUP_STEPS[setupStep] === 'voice') ((setupKey = ''), renderSetup());
+});
 $('setup-next').addEventListener('click', () => (SETUP_STEPS[setupStep] === 'done' ? window.lydia.setupDone() : setupGo(1)));
 $('setup-back').addEventListener('click', () => setupGo(-1));
 $('setup-skip').addEventListener('click', () => window.lydia.setupDone());
@@ -992,6 +1019,18 @@ async function setupAct(act, el) {
     else await setupRefresh();
   } else if (act === 'key-get') window.lydia.openKeyPage();
   else if (act === 'ollama-pull') window.lydia.setupOllamaPull();
+  else if (act === 'voice-install') {
+    voiceStep = { step: 'whisper-get' };
+    redraw();
+    const r = await window.lydia.voiceInstall();
+    voiceStep = r.ok ? null : { error: t('setup.voice_failed', { why: r.error ?? '' }) };
+    await setupRefresh();
+    redraw();
+  } else if (act === 'voice-test') window.lydia.voiceToggle();
+  else if (act === 'voice-unmute') {
+    await window.lydia.voiceUnmute();
+    await setupRefresh();
+  }
   else if (act === 'ext-install') {
     const r = await window.lydia.setupExtInstall();
     extError = r.ok ? '' : t('setup.ext_failed');
@@ -1019,6 +1058,31 @@ orb.addEventListener('click', () => smile(1200));
 island.addEventListener('mouseenter', () => window.lydia.hover(true));
 island.addEventListener('mouseleave', () => window.lydia.hover(false));
 $('btn-pause').addEventListener('click', () => window.lydia.togglePause());
+$('btn-mic').addEventListener('click', () => window.lydia.voiceToggle());
+
+// ---------- voice: listening, thinking, speaking ----------
+
+let voiceState = 'idle';
+window.lydia.on('voice', (v) => {
+  if (v.level != null) orb.style.setProperty('--lv', v.level.toFixed(2));
+  if (v.state === voiceState && v.heard == null) return;
+  voiceState = v.state;
+  orb.classList.toggle('listen', v.state === 'listening');
+  orb.classList.toggle('think', v.state === 'thinking');
+  orb.classList.toggle('talk', v.state === 'speaking');
+  island.classList.toggle('listening', v.state === 'listening');
+  $('btn-mic').classList.toggle('on', v.state === 'listening');
+  if (v.state !== 'idle') stopActivityQuietly();
+  renderPill(false);
+});
+// A spoken question goes to the chat too, so the answer stays there.
+window.lydia.on('chat-voice', ({ text }) => {
+  bubble('me', md(text));
+  current = bubble('her typing', '');
+  raw = '';
+  chatBusy = true;
+  $('chat-send').disabled = true;
+});
 $('btn-menu').addEventListener('click', () => window.lydia.menu());
 
 translatePage();

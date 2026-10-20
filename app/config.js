@@ -27,6 +27,8 @@ const DEFAULTS = {
   ollama_model: '', // empty: the first one installed
   // Interface language: "system" (follow the desktop), "pt", "en" or "es".
   language: 'system',
+  // Talk to her: press it, speak, she acts or answers (Electron accelerator).
+  voice_shortcut: 'Super+Alt+Space',
   // The setup wizard opens on the first run until it is finished or skipped.
   setup_done: false,
   // Lydia's colors (#rrggbb). Alerts still use the default stress colors.
@@ -61,6 +63,7 @@ function load() {
     else if (key === 'chat_provider' && ['claude', 'gemini', 'ollama'].includes(value)) cfg[key] = value;
     else if (key === 'ollama_model' && typeof value === 'string') cfg[key] = value;
     else if (key === 'language' && ['system', 'pt', 'en', 'es'].includes(value)) cfg[key] = value;
+    else if (key === 'voice_shortcut' && typeof value === 'string' && value.length < 60) cfg[key] = value;
     else if (typeof def === 'string' && typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) cfg[key] = value.toLowerCase();
     else if (Array.isArray(def) && Array.isArray(value)) cfg[key] = value.filter((v) => typeof v === 'string');
     else if (typeof def === 'number' && Number.isFinite(value) && (value > 0 || (value === 0 && key === 'island_y_offset'))) cfg[key] = value;
