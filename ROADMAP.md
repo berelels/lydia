@@ -1,34 +1,37 @@
 # Lydia: roadmap
 
-Objetivo: ela rodar bem na máquina de qualquer pessoa, instalar em um clique e
-ser fácil de descobrir. Em ordem de impacto.
+Objetivo: rodar bem na máquina de qualquer pessoa, instalar em um clique e ser
+fácil de descobrir. Em ordem de impacto.
 
-## 1. Rodar na máquina das pessoas
-- [x] Sensores além de AMD: Intel (coretemp, xe/i915), NVIDIA (nouveau e nvidia-smi), APU + placa, zonas térmicas. Testes em `test/sensors.test.js`.
-- [x] Desktop em "backends" (`app/desktop/`): X11 (xprop/xdotool, como hoje), GNOME (extensão do Shell, funciona em X11 e Wayland) e "nenhum" (sem detectar janelas, mas o resto funciona).
-- [x] Extensão do GNOME Shell (`gnome-extension/`): ponteiro, tela cheia, janela sob a pill, janela ativa, por D-Bus.
-- [x] Testar em Wayland (gnome-shell aninhado): pill, alça, tela cheia com janela nativa Wayland, foco do chat. Falta: hover com o mouse de verdade.
-- [x] Em Wayland ela se reabre por XWayland (`--ozone-platform=x11`), que pode se posicionar no topo.
-- [ ] KDE Plasma (script do KWin ou layer-shell).
-- [x] Não quebrar sozinha: sem `xprop`, `xdotool`, `python3` ou sensores, avisar uma vez e seguir.
-
-## 2. Instalar em um clique
-- [ ] AppImage e .deb (electron-builder), depois Flatpak (Flathub).
-- [ ] Ícone e entrada no menu de aplicativos. (Iniciar com o sistema: já no assistente.)
-- [x] Assistente de configuração (primeira execução e menu): idioma, chat padrão (login do Claude, chave do Gemini, modelo do Ollama), extensão do GNOME, preferências e iniciar com o sistema.
-
-## 3. Alguém descobrir que ela existe
-- [x] README com GIF: a pill, animações, alertas, chat, cores, notificações, assistente.
-- [ ] Licença (MIT ou GPL, decisão do autor) e `CONTRIBUTING.md`.
-- [ ] Página simples (GitHub Pages) e posts (r/linux, r/unixporn, Hacker News).
-
-## 5. Assistente por voz
-- [x] Comandos do dia a dia por regras (pt, en, es), sem internet; o resto pelo Gemini com ferramentas.
-- [x] Ferramentas: abrir app/site, pesquisar, YouTube, volume, mudo, mídia, timer, hora, bloquear tela, tema, status, fechar app (pede confirmação).
-- [x] Atalho global, botão de microfone, aviso de microfone mudo, instalador da voz no assistente (whisper.cpp + Piper).
-- [ ] Palavra de ativação ("Oi Lydia").
-- [ ] Atalho no Wayland (pela extensão do GNOME), janelas, digitar texto.
-
-## 4. Confiança
+## Feito
+- [x] Ilha no topo: barra fechada com relógio e/ou números do sistema, alça sobre janelas maximizadas, notch em tela cheia, player quando algo toca.
+- [x] Abas: Controles (Wi-Fi, Bluetooth com listas, luz noturna, não perturbe, modo escuro, saída e entrada de som, brilho, player), Hoje (relógio, clima, semana, timer, tarefas), Sistema, Área de transferência, Apps, Papel de parede, Chat, Notificações, Energia, Configurações.
+- [x] Voz (Gemini ou Kokoro), conversa contínua, ditado, comandos offline em pt/en/es.
+- [x] Extensão do GNOME: ponteiro, tela cheia, janela sob a ilha, esconder a barra do GNOME, tecla Super, notificações, ajuste das janelas encaixadas.
+- [x] Assistente de configuração, três idiomas, fonte e cor de destaque.
 - [x] Testes com `npm test` (node:test, sem dependências).
+
+## 1. Lançar para Ubuntu 24.04+ com GNOME
+- [ ] Empacotar com electron-builder: `.deb` e AppImage, ícone, entrada no menu.
+- [ ] Tirar do pacote (asar) o que precisa ser lido por caminho: os scripts Python e a extensão do GNOME.
+- [ ] Dependências do `.deb`: `xdotool`, `x11-utils`, `python3-gi`, `gir1.2-gtk-3.0`, `pulseaudio-utils`, `bluez`, `network-manager`.
+- [ ] Sandbox do Electron com o AppArmor do 24.04 (chrome-sandbox SUID no .deb; perfil para o AppImage).
+- [ ] Voz sem compilar na máquina: baixar o whisper.cpp pronto; `python3-venv` para o Kokoro.
+- [ ] Embutir a fonte Inter (OFL).
+- [ ] Ícones pelo tema atual (hoje há uma pasta do Zorin fixa).
+- [ ] Licença, créditos de terceiros (Kokoro, whisper.cpp, Inter) e política de privacidade.
+- [ ] Atualizações: repositório APT assinado ou atualização do AppImage.
+
+## 2. Ubuntu 22.04 e derivadas
+- [ ] Áudio pelo PulseAudio quando não houver PipeWire (`pactl`, `parecord`, `paplay` no lugar de `wpctl`, `pw-record`, `pw-play`).
+- [ ] Extensão no formato do GNOME 42–44, ou declarar 24.04 como mínimo.
+
+## 3. Outros desktops
+- [ ] Cinnamon (Mint), KDE (Kubuntu), XFCE (Xubuntu), MATE: modo escuro, luz noturna, não perturbe, papel de parede, sair da sessão, áreas de trabalho, configurações do sistema; esconder o que não houver.
+- [ ] KDE Plasma no Wayland (script do KWin ou layer-shell).
+
+## 4. Confiança e alcance
 - [ ] CI (GitHub Actions) rodando os testes.
+- [ ] Testar: Ubuntu 24.04 (Wayland), 22.04, Mint 22, Kubuntu, Pop!_OS 24.04 (COSMIC), vários monitores, escala de tela, Wi-Fi de verdade.
+- [ ] Palavra de ativação ("Oi Lydia").
+- [ ] Página simples (GitHub Pages) e posts.

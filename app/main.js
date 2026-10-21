@@ -391,7 +391,7 @@ let lastOutside = null; // the window you were in before opening her (to paste b
 function setExpanded(on) {
   if (state.expanded === on) return;
   state.expanded = on;
-  if (!on) state.byKey = false;
+  if (!on) state.byKey = state.hold = false;
   if (on) desktop.activeWindow((id) => (lastOutside = id));
   if (!on) giveFocusBack();
   applyShape();
@@ -608,6 +608,7 @@ function tick() {
     (state.view === 'chat' && win.isFocused()) || // typing: the pointer may wander off
     state.view === 'setup' || // the wizard stays until it is finished or skipped
     (state.byKey && win.isFocused()) || // opened with Super: until Super again, Esc, or a click elsewhere
+    (state.hold && win.isFocused()) || // a dropdown is open: its list hangs outside the island
     now < state.pokeUntil
   ) {
     leaveSince = 0;
@@ -719,6 +720,7 @@ ipcMain.on('open', (_e, view) => {
   setExpanded(true);
 });
 ipcMain.on('hover', (_e, on) => (hovered = !!on));
+ipcMain.on('hold', (_e, on) => (state.hold = !!on));
 ipcMain.on('news', (_e, on) => {
   state.news = !!on;
   relayout();

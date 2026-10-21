@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('lydia', {
   collapse: () => ipcRenderer.send('collapse'),
   open: (view) => ipcRenderer.send('open', view),
   hover: (on) => ipcRenderer.send('hover', on),
+  hold: (on) => ipcRenderer.send('hold', on),
   voiceToggle: () => ipcRenderer.send('voice-toggle'),
   ws: (action, args) => ipcRenderer.invoke('ws', action, args),
   voiceInstall: () => ipcRenderer.invoke('voice-install'),

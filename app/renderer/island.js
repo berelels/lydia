@@ -921,6 +921,11 @@ window.addEventListener('contextmenu', (e) => {
     window.lydia.editMenu();
   } else window.lydia.menu();
 });
+// A dropdown's list opens outside the island: while one is in use she stays open
+// (choosing lets go of it, so she can close again once the mouse leaves).
+document.addEventListener('focusin', (e) => e.target.tagName === 'SELECT' && window.lydia.hold(true));
+document.addEventListener('focusout', (e) => e.target.tagName === 'SELECT' && window.lydia.hold(false));
+document.addEventListener('change', (e) => e.target.tagName === 'SELECT' && e.target.blur(), true);
 // Where the desktop can't report the pointer (Wayland with no helper), hover comes from here.
 island.addEventListener('mouseenter', () => window.lydia.hover(true));
 island.addEventListener('mouseleave', () => window.lydia.hover(false));
