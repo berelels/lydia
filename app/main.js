@@ -40,6 +40,7 @@ const GEOM = {
   winW: 880,
   winH: 530, // below the panel: room for the tallest view (+ its shadow)
   pill: { w: 210, h: 38 }, // hanging from the panel when nothing is below it
+  clockPill: { w: 132 }, // the same, showing only the clock
   music: { w: 360, h: 86 }, // something is playing (and nothing is below): a small player
   // A window right below the panel (a maximized browser's address bar): just a
   // thin handle, so she covers nothing. (GNOME draws its panel above every
@@ -90,10 +91,12 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.exit(0);
 
 function islandRect(kind) {
-  const w = kind === 'panel' ? VIEW_W[state.view] ?? GEOM.panel.w : GEOM[kind].w;
+  const w = kind === 'panel' ? VIEW_W[state.view] ?? GEOM.panel.w : kind === 'pill' ? pillW() : GEOM[kind].w;
   const h = kind === 'panel' ? VIEW_H[state.view] ?? GEOM.panel.h : GEOM[kind].h;
   return { x: Math.round((GEOM.winW - w) / 2), y: kind === 'panel' ? layout.topOpen : layout.top, width: w, height: h };
 }
+// Just the clock (and nothing to say): a narrower pill. The page uses the same width (style.css).
+const pillW = () => (cfg.bar_content === 'clock' && !currentIssue() && !state.paused && !state.news && state.voice === 'idle' ? GEOM.clockPill.w : GEOM.pill.w);
 const collapsedKind = () => (layout.lip ? 'lip' : layout.compact ? 'mini' : layout.music ? 'music' : 'pill');
 
 function grow(r, m) {
@@ -154,7 +157,7 @@ function relayout(force = false) {
     compact = true;
   } else if (peek) compact = true;
   const music = !!state.mediaCard && !lip && !compact && !hidden;
-  const next = { top, topOpen, lip, edge: state.fullscreen, compact, hidden, peek, music };
+  const next = { top, topOpen, lip, edge: state.fullscreen, compact, hidden, peek, music, pillW: pillW() }; // pillW: reshape when it narrows/widens
   if (!force && Object.entries(next).every(([k, v]) => layout[k] === v)) return;
   Object.assign(layout, next);
   if (process.env.LYDIA_DEBUG) {
@@ -1309,7 +1312,7 @@ const desktopCtx = {
   zone: () => {
     const d = screen.getPrimaryDisplay();
     const cx = d.bounds.x + d.bounds.width / 2;
-    return { x: cx - GEOM.pill.w / 2 - 12, y: d.workArea.y, width: GEOM.pill.w + 24, height: GEOM.pill.h + 8 };
+    return { x: cx - pillW() / 2 - 12, y: d.workArea.y, width: pillW() + 24, height: GEOM.pill.h + 8 };
   },
   selfXid: () => (ownXid ||= alive() ? win.getNativeWindowHandle().readUInt32LE(0) : 0),
 };

@@ -121,7 +121,13 @@ html, body {
   white-space: nowrap;
   transition: opacity .18s;
 }
-.pill-clock { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.pill-clock { color: var(--ink); font-weight: calc(var(--weight, 400) + 200); font-variant-numeric: tabular-nums; } /* the chosen font, a step bolder */
+/* both: the clock stays put left of the middle, the turning info right of it (its width changes) */
+#island[data-bar="both"]:not(.mini) .pill-view:not(:has(.pill-metric.important)) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; } /* equal halves, whatever the text */
+#island[data-bar="both"]:not(.mini) .pill-view:not(:has(.pill-metric.important)) .pill-clock { justify-self: end; }
+#island[data-bar="both"]:not(.mini) .pill-view:not(:has(.pill-metric.important)) .pill-metric { justify-self: start; }
+/* just the clock (and nothing to say): a narrower pill; main.js shapes the window the same */
+#island[data-bar="clock"]:not(:has(.pill-metric.important)) { --pill-w: 132px; }
 #island[data-bar="info"] .pill-clock { display: none; }
 #island[data-bar="clock"] .pill-metric:not(.important) { display: none; }
 #island[data-bar="clock"] .pill-view:has(.pill-metric.important) .pill-clock { display: none; } /* room for what matters */
