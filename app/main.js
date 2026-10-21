@@ -37,7 +37,7 @@ if (process.env.WAYLAND_DISPLAY && !process.argv.some((a) => a.startsWith('--ozo
 // very top of the screen (see-through over the panel), the island grows and
 // slides inside it, and the X11 input shape follows, so the rest stays click-through.
 const GEOM = {
-  winW: 840,
+  winW: 880,
   winH: 530, // below the panel: room for the tallest view (+ its shadow)
   pill: { w: 210, h: 38 }, // hanging from the panel when nothing is below it
   music: { w: 360, h: 86 }, // something is playing (and nothing is below): a small player
@@ -47,7 +47,7 @@ const GEOM = {
   lip: { w: 64, h: 7 },
   mini: { w: 64, h: 24 }, // fullscreen: just her eyes peeking from the top edge
   panel: { w: 720, h: 200 }, // w and h follow the open view, see VIEW_W / VIEW_H
-  glow: 24, // room for the shadow around the visible island
+  glow: 44, // room for the shadow around the visible island (offset + blur: none of it cut)
 };
 // Size of the open panel for each view (the renderer uses the same numbers).
 const VIEW_H = { notif: 400, home: 170, look: 460, tasks: 330, chat: 440, setup: 440, controls: 320, today: 390, clip: 380, apps: 380, wall: 270, power: 170 };

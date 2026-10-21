@@ -209,7 +209,7 @@ window.lydia.on('prefs', (p) => {
   document.querySelector('.switch[data-pref="super_opens"]').hidden = !p.panelOk;
   $('super-tab-row').hidden = !p.panelOk || !p.super_opens;
   const tabs = [...document.querySelectorAll('.tabs .tab[data-view]')].map((b) => ({ id: b.dataset.view, label: t(b.dataset.i18nTitle) }));
-  fillSelect($('super-tab'), [{ id: 'last', label: t('pref.super_last') }, { id: 'notif', label: t('tool.notif') }, ...tabs, { id: 'look', label: t('tool.settings') }], p.super_tab);
+  fillSelect($('super-tab'), [{ id: 'last', label: t('pref.super_last') }, { id: 'notif', label: t('tool.notif') }, ...tabs, { id: 'power', label: t('tab.power') }, { id: 'look', label: t('tool.settings') }], p.super_tab);
   if (p.lang !== i18n.lang()) {
     i18n.setLang(p.lang);
     translatePage();
@@ -361,6 +361,7 @@ $('weather-city').addEventListener('change', (e) => window.lydia.setPref('weathe
 $('weather-city').addEventListener('keydown', (e) => e.key === 'Enter' && e.target.blur());
 $('super-tab').addEventListener('change', (e) => window.lydia.setPref('super_tab', e.target.value));
 $('btn-notif').addEventListener('click', () => setView(island.dataset.view === 'notif' ? lastTab : 'notif'));
+$('btn-power').addEventListener('click', () => setView(island.dataset.view === 'power' ? lastTab : 'power'));
 $('btn-overview').addEventListener('click', () => window.lydia.ws('sys.overview'));
 // the gear: Lydia's settings (Appearance), which also leads to the system's
 $('btn-settings').addEventListener('click', () => setView(island.dataset.view === 'look' ? lastTab : 'look'));
