@@ -1,7 +1,7 @@
 const { execFile } = require('child_process');
 
 /**
- * The Controls tab: network, Bluetooth, sound output, volume, brightness,
+ * The Controls tab: network, Bluetooth, sound output and input, volumes, brightness,
  * night light, dark mode, do not disturb. Each one is read from (and set
  * through) the system's own tools; whatever this computer doesn't have is
  * simply left out (no Wi-Fi card, a desktop monitor without brightness...).
@@ -55,6 +55,22 @@ async function sound() {
   return { sinks, current: def, volume: m ? Math.round(Number(m[1]) * 100) : null, muted: /MUTED/.test(vol ?? '') };
 }
 
+/** Microphones (not the "monitor" of each output), which one is in use, its level. */
+async function mic() {
+  const out = await run('pactl', ['list', 'sources']);
+  const def = (await run('pactl', ['get-default-source']))?.trim();
+  if (!out) return null;
+  const sources = out
+    .split(/^Source #/m)
+    .slice(1)
+    .map((b) => ({ name: /Name:\s*(\S+)/.exec(b)?.[1], label: /Description:\s*(.+)/.exec(b)?.[1]?.trim() }))
+    .filter((s) => s.name && !s.name.endsWith('.monitor') && !/snd_aloop|Loopback/i.test(s.name + s.label));
+  if (!sources.length) return null;
+  const vol = await run('wpctl', ['get-volume', '@DEFAULT_AUDIO_SOURCE@']);
+  const m = /Volume:\s+([\d.]+)/.exec(vol ?? '');
+  return { sources, current: def, volume: m ? Math.round(Number(m[1]) * 100) : null, muted: /MUTED/.test(vol ?? '') };
+}
+
 async function brightness() {
   const out = await run('gdbus', ['call', '--session', '--dest', 'org.gnome.SettingsDaemon.Power', '--object-path', '/org/gnome/SettingsDaemon/Power', '--method', 'org.freedesktop.DBus.Properties.Get', 'org.gnome.SettingsDaemon.Power.Screen', 'Brightness']);
   const n = Number(/<(-?\d+)>/.exec(out ?? '')?.[1]);
@@ -62,10 +78,11 @@ async function brightness() {
 }
 
 async function state() {
-  const [net, bt, snd, bright, night, banners, scheme, theme] = await Promise.all([
+  const [net, bt, snd, input, bright, night, banners, scheme, theme] = await Promise.all([
     network(),
     bluetooth(),
     sound(),
+    mic(),
     brightness(),
     gget(COLOR, 'night-light-enabled'),
     gget(NOTIF, 'show-banners'),
@@ -76,6 +93,7 @@ async function state() {
     network: net,
     bluetooth: bt,
     sound: snd,
+    mic: input,
     brightness: bright,
     nightLight: night === null ? null : night === 'true',
     dnd: banners === null ? null : banners === 'false',
@@ -100,6 +118,15 @@ async function set({ what, value }) {
       break;
     case 'mute':
       await run('wpctl', ['set-mute', '@DEFAULT_AUDIO_SINK@', value ? '1' : '0']);
+      break;
+    case 'source':
+      if (typeof value === 'string' && /^[\w.:-]+$/.test(value)) await run('pactl', ['set-default-source', value]);
+      break;
+    case 'micVolume':
+      await run('wpctl', ['set-volume', '@DEFAULT_AUDIO_SOURCE@', `${Math.max(0, Math.min(100, Math.round(Number(value))))}%`]);
+      break;
+    case 'micMute':
+      await run('wpctl', ['set-mute', '@DEFAULT_AUDIO_SOURCE@', value ? '1' : '0']);
       break;
     case 'brightness':
       await run('gdbus', ['call', '--session', '--dest', 'org.gnome.SettingsDaemon.Power', '--object-path', '/org/gnome/SettingsDaemon/Power', '--method', 'org.freedesktop.DBus.Properties.Set', 'org.gnome.SettingsDaemon.Power.Screen', 'Brightness', `<int32 ${Math.max(1, Math.min(100, Math.round(Number(value))))}>`]);

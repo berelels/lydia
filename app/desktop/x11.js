@@ -202,6 +202,16 @@ class X11Desktop {
     return false; // only the GNOME helper can
   }
 
+  setSuper() {
+    return false;
+  }
+
+  /** GNOME on X11 without the helper: the overview is the Super key. */
+  overview() {
+    execFile('xdotool', ['key', 'super'], { timeout: 1000 }, () => {});
+    return true;
+  }
+
   /** Lydia takes the keyboard herself (X11 lets a window ask). */
   focusSelf(win) {
     win.focus();

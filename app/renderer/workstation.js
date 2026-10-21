@@ -14,6 +14,8 @@ const SVG = {
   dark: '<circle class="stroke" cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z"/>',
   volume: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="stroke" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>',
   muted: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="stroke" d="M16 9.5l5 5M21 9.5l-5 5"/>',
+  mic: '<path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path class="stroke" d="M6.5 11.5a5.5 5.5 0 0 0 11 0M12 17v3.5"/>',
+  micOff: '<path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path class="stroke" d="M6.5 11.5a5.5 5.5 0 0 0 11 0M12 17v3.5M4 4l16 16"/>',
   sun: '<circle cx="12" cy="12" r="3.6"/><path class="stroke" d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M6 18l1.4-1.4M16.6 7.4 18 6"/>',
   prev: '<path d="M7 5.5h2v13H7zM19 5.5v13L10 12z"/>',
   next: '<path d="M15 5.5h2v13h-2zM5 5.5v13l9-6.5z"/>',
@@ -59,6 +61,12 @@ function renderControls() {
     rows.push(`<div class="ctl-row"><button class="ctl-ico" data-what="mute" title="${esc(t('ctl.volume'))}">${icon(s.muted ? 'muted' : 'volume')}</button>
       <input type="range" min="0" max="100" value="${s.volume}" data-what="volume">
       <select data-what="sink" title="${esc(t('ctl.output'))}">${s.sinks.map((k) => `<option value="${esc(k.name)}" ${k.name === s.current ? 'selected' : ''}>${esc(k.label)}</option>`).join('')}</select></div>`);
+  }
+  const m = ctl.mic;
+  if (m && m.volume !== null) {
+    rows.push(`<div class="ctl-row"><button class="ctl-ico" data-what="micMute" title="${esc(t('ctl.input'))}">${icon(m.muted ? 'micOff' : 'mic')}</button>
+      <input type="range" min="0" max="100" value="${m.volume}" data-what="micVolume">
+      <select data-what="source" title="${esc(t('ctl.input'))}">${m.sources.map((k) => `<option value="${esc(k.name)}" ${k.name === m.current ? 'selected' : ''}>${esc(k.label)}</option>`).join('')}</select></div>`);
   }
   if (ctl.brightness !== null) {
     rows.push(`<div class="ctl-row"><span class="ctl-ico" title="${esc(t('ctl.brightness'))}">${icon('sun')}</span>
@@ -120,15 +128,16 @@ $('ctl-sliders').addEventListener('change', async (e) => {
     sliding = false;
     return;
   }
-  if (what === 'sink') {
+  if (what === 'sink' || what === 'source') {
     const c = await ws('controls.set', { what, value: e.target.value });
     if (c) (ctl = c), renderControls();
   }
 });
 $('ctl-sliders').addEventListener('click', async (e) => {
-  const b = e.target.closest('button[data-what="mute"]');
+  const b = e.target.closest('button[data-what="mute"], button[data-what="micMute"]');
   if (!b) return;
-  const c = await ws('controls.set', { what: 'mute', value: !ctl.sound.muted });
+  const mic = b.dataset.what === 'micMute';
+  const c = await ws('controls.set', { what: b.dataset.what, value: mic ? !ctl.mic.muted : !ctl.sound.muted });
   if (c) (ctl = c), renderControls();
 });
 $('player').addEventListener('click', async (e) => {

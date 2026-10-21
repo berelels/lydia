@@ -23,6 +23,10 @@ const DEFAULTS = {
   hide_in_fullscreen: false,
   // GNOME: hide the top panel while Lydia runs (she sits at the very top instead). Needs the helper extension.
   hide_gnome_panel: false,
+  // GNOME: the Super key opens Lydia instead of the overview (the workspaces button still shows it).
+  super_opens: false,
+  // The closed bar: "info" (RAM, CPU... in turns), "clock", or "both".
+  bar_content: 'both',
   // Who answers in the chat: "claude" (the claude CLI and its login), "gemini"
   // (a Google AI Studio key, kept encrypted by the system keyring) or "ollama" (local).
   chat_provider: 'claude',
@@ -43,9 +47,8 @@ const DEFAULTS = {
   wallpaper_dir: '',
   // The setup wizard opens on the first run until it is finished or skipped.
   setup_done: false,
-  // Lydia's colors (#rrggbb). Alerts still use the default stress colors.
-  body_color: '#8f63f7',
-  eye_color: '#f6f1ff',
+  // The island's accent color (#rrggbb): active tab, switches, sliders.
+  accent_color: '#8f63f7',
 };
 
 function configPath() {
@@ -76,6 +79,7 @@ function load() {
     else if (key === 'ollama_model' && typeof value === 'string') cfg[key] = value;
     else if (key === 'language' && ['system', 'pt', 'en', 'es'].includes(value)) cfg[key] = value;
     else if ((key === 'voice_shortcut' || key === 'dictation_shortcut') && typeof value === 'string' && value.length < 60) cfg[key] = value;
+    else if (key === 'bar_content' && ['info', 'clock', 'both'].includes(value)) cfg[key] = value;
     else if (key === 'voice_name' && typeof value === 'string' && /^[A-Z][a-z]{2,20}$/.test(value)) cfg[key] = value;
     else if (key === 'wallpaper_dir' && typeof value === 'string') cfg[key] = value;
     else if (typeof def === 'string' && typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) cfg[key] = value.toLowerCase();

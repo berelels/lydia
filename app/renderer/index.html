@@ -10,24 +10,32 @@
   <div id="island">
     <!-- Collapsed: a small pill with Lydia and one number. -->
     <div class="pill-view">
+      <span class="pill-clock" id="pill-clock"></span>
       <span class="pill-metric" id="pill-metric"><span id="pill-label">RAM</span> <b id="pill-value">--%</b></span>
+      <span class="badge" id="badge"></span>
     </div>
 
     <!-- Expanded: tabs, then one of the views. -->
     <div class="panel-view">
       <div class="topbar">
         <div class="tabs">
-          <button class="tab" data-view="controls" data-i18n="tabs.controls" data-i18n-title="tab.controls"></button>
-          <button class="tab" data-view="today" data-i18n="tabs.today" data-i18n-title="tab.today"></button>
-          <button class="tab" data-view="tasks" data-i18n="tabs.stats" data-i18n-title="tab.stats"></button>
-          <button class="tab" data-view="clip" data-i18n="tabs.clip" data-i18n-title="tab.clip"></button>
-          <button class="tab" data-view="apps" data-i18n="tabs.apps" data-i18n-title="tab.apps"></button>
-          <button class="tab" data-view="wall" data-i18n="tabs.wall" data-i18n-title="tab.wall"></button>
-          <button class="tab" data-view="power" data-i18n="tabs.power" data-i18n-title="tab.power"></button>
-          <button class="tab" data-view="chat" data-i18n="tabs.chat" data-i18n-title="tab.chat"></button>
-          <button class="tab" data-view="look" data-i18n="tabs.look" data-i18n-title="tab.look"></button>
+          <button class="tab" data-view="controls" data-i18n-title="tab.controls"><svg viewBox="0 0 24 24"><path class="stroke" d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle class="stroke" cx="16" cy="7" r="2"/><circle class="stroke" cx="10" cy="17" r="2"/></svg></button>
+          <button class="tab" data-view="today" data-i18n-title="tab.today"><svg viewBox="0 0 24 24"><rect class="stroke" x="4" y="5.5" width="16" height="14" rx="2.5"/><path class="stroke" d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg></button>
+          <button class="tab" data-view="tasks" data-i18n-title="tab.stats"><svg viewBox="0 0 24 24"><path class="stroke" d="M5 19V11M10 19V6M15 19v-5M20 19V9"/></svg></button>
+          <button class="tab" data-view="clip" data-i18n-title="tab.clip"><svg viewBox="0 0 24 24"><rect class="stroke" x="5.5" y="5" width="13" height="15" rx="2"/><path class="stroke" d="M9 5V3.8h6V5M9 10h6M9 14h4"/></svg></button>
+          <button class="tab" data-view="apps" data-i18n-title="tab.apps"><svg viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="6" height="6" rx="1.6"/><rect x="13.5" y="4.5" width="6" height="6" rx="1.6"/><rect x="4.5" y="13.5" width="6" height="6" rx="1.6"/><rect x="13.5" y="13.5" width="6" height="6" rx="1.6"/></svg></button>
+          <button class="tab" data-view="wall" data-i18n-title="tab.wall"><svg viewBox="0 0 24 24"><rect class="stroke" x="3.5" y="5" width="17" height="14" rx="2.5"/><path class="stroke" d="M6 17l4.5-5 3 3 2-2L19 17"/><circle cx="15.5" cy="9" r="1.5"/></svg></button>
+          <button class="tab" data-view="power" data-i18n-title="tab.power"><svg viewBox="0 0 24 24"><path class="stroke" d="M12 4v7M7.5 7a7 7 0 1 0 9 0"/></svg></button>
+          <button class="tab" data-view="chat" data-i18n-title="tab.chat"><svg viewBox="0 0 24 24"><path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-7l-4 3.5V16H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+          <button class="tab" data-view="look" data-i18n-title="tab.look"><svg viewBox="0 0 24 24"><path d="M12 4a8 8 0 1 0 0 16c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1.1 0-.9.7-1.6 1.6-1.6H16a4 4 0 0 0 4-4C20 7 16.4 4 12 4zm-4.5 8a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm2.5-3.4a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm4 0a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm2.5 3.4a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6z"/></svg></button>
         </div>
         <div class="tools">
+          <button id="btn-overview" class="tool" data-i18n-title="tool.overview">
+            <svg viewBox="0 0 24 24"><rect class="stroke" x="3.5" y="5.5" width="7" height="6" rx="1.5"/><rect class="stroke" x="13.5" y="5.5" width="7" height="6" rx="1.5"/><rect class="stroke" x="3.5" y="14.5" width="7" height="4.5" rx="1.5"/><rect class="stroke" x="13.5" y="14.5" width="7" height="4.5" rx="1.5"/></svg>
+          </button>
+          <button id="btn-settings" class="tool" data-i18n-title="tool.settings">
+            <svg viewBox="0 0 24 24"><circle class="stroke" cx="12" cy="12" r="3"/><path class="stroke" d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M6 18l1.6-1.6M16.4 7.6 18 6"/></svg>
+          </button>
           <button id="btn-mic" class="tool" data-i18n-title="voice.mic_tip">
             <svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path class="stroke" d="M6.5 11.5a5.5 5.5 0 0 0 11 0M12 17v3.5"/></svg>
           </button>
@@ -49,12 +57,14 @@
           <!-- appearance view -->
           <div class="appearance view-look">
             <div class="appearance-row">
-              <span data-i18n="look.body"></span>
-              <div class="swatches" id="sw-body"></div>
+              <span data-i18n="look.accent"></span>
+              <div class="swatches" id="sw-accent"></div>
             </div>
             <div class="appearance-row">
-              <span data-i18n="look.eyes"></span>
-              <div class="swatches" id="sw-eye"></div>
+              <span data-i18n="look.bar"></span>
+              <div class="seg" id="bar-content">
+                <button data-v="info" data-i18n="bar.info"></button><button data-v="clock" data-i18n="bar.clock"></button><button data-v="both" data-i18n="bar.both"></button>
+              </div>
             </div>
             <div class="appearance-row">
               <span data-i18n="look.language"></span>
@@ -65,18 +75,6 @@
         </div>
         <div class="card side">
           <div class="view-look">
-            <div class="side-title" data-i18n="idle.title"></div>
-            <div class="play">
-              <button data-activity="nap" data-i18n="idle.nap"></button>
-              <button data-activity="music" data-i18n="idle.music"></button>
-              <button data-activity="game" data-i18n="idle.game"></button>
-              <button data-activity="book" data-i18n="idle.book"></button>
-              <button data-activity="plant" data-i18n="idle.plant"></button>
-              <button data-activity="cube" data-i18n="idle.cube"></button>
-              <button data-activity="draw" data-i18n="idle.draw"></button>
-              <button data-activity="coffee" data-i18n="idle.coffee"></button>
-              <button data-activity="lunch" data-i18n="idle.lunch"></button>
-            </div>
             <div class="pref-row">
               <span data-i18n="pref.chat_default"></span>
               <div class="seg" id="default-provider">
@@ -97,6 +95,9 @@
             </button>
             <button class="switch" data-pref="hide_gnome_panel" role="switch" aria-checked="false" data-i18n-title="pref.hide_panel_tip" hidden>
               <i></i><span data-i18n="pref.hide_panel"></span>
+            </button>
+            <button class="switch" data-pref="super_opens" role="switch" aria-checked="false" data-i18n-title="pref.super_tip" hidden>
+              <i></i><span data-i18n="pref.super"></span>
             </button>
           </div>
         </div>
@@ -241,151 +242,6 @@
       </div>
     </div>
 
-    <!-- Lydia lives outside the views so she can morph between them.
-         She has no mouth: everything she feels shows in her eyes. -->
-    <div id="lydia" data-activity="none">
-      <div class="breath">
-        <svg viewBox="0 0 100 100" aria-hidden="true">
-          <defs>
-            <radialGradient id="g-orb" cx="34%" cy="28%" r="82%">
-              <stop offset="0" class="b0"/>
-              <stop offset=".34" class="b1"/>
-              <stop offset=".74" class="b2"/>
-              <stop offset="1" class="b3"/>
-            </radialGradient>
-            <!-- Stress always uses these, whatever colors were picked. -->
-            <radialGradient id="g-orb-alert" cx="34%" cy="28%" r="82%">
-              <stop offset="0" stop-color="#ffb8d2"/>
-              <stop offset=".34" stop-color="#d0479b"/>
-              <stop offset=".74" stop-color="#97217e"/>
-              <stop offset="1" stop-color="#560f50"/>
-            </radialGradient>
-          </defs>
-
-          <!-- headphones: the band goes behind her, the cups in front -->
-          <g class="headphones prop"><path class="band" d="M2 52 A48 48 0 0 1 98 52"/></g>
-
-          <circle cx="50" cy="50" r="44" fill="url(#g-orb)"/>
-          <circle class="alert-fill" cx="50" cy="50" r="44" fill="url(#g-orb-alert)"/>
-
-          <g class="headphones prop">
-            <rect class="cup" x="-4" y="38" width="14" height="27" rx="7"/>
-            <rect class="cup" x="90" y="38" width="14" height="27" rx="7"/>
-          </g>
-
-          <g class="face">
-            <g class="look">
-              <g transform="translate(35 50)"><g class="eye left">
-                <rect class="eye-dot" x="-7" y="-8.5" width="14" height="17" rx="7"/>
-                <path class="eye-happy" d="M-8 3 Q0 -8 8 3"/>
-              </g></g>
-              <g transform="translate(65 50)"><g class="eye right">
-                <rect class="eye-dot" x="-7" y="-8.5" width="14" height="17" rx="7"/>
-                <path class="eye-happy" d="M-8 3 Q0 -8 8 3"/>
-              </g></g>
-            </g>
-          </g>
-
-          <g class="controller prop">
-            <g class="pad">
-              <path class="pad-body" d="M30 72 h40 a11 11 0 0 1 10.6 8 l3 11 a6 6 0 0 1 -10 6 l-6 -6 h-35.2 l-6 6 a6 6 0 0 1 -10 -6 l3 -11 a11 11 0 0 1 10.6 -8z"/>
-              <path class="dpad" d="M31 80 h4 v4 h4 v4 h-4 v4 h-4 v-4 h-4 v-4 h4z"/>
-              <circle class="btn b-a" cx="66" cy="86" r="2.8"/>
-              <circle class="btn b-b" cx="72" cy="81" r="2.8"/>
-            </g>
-          </g>
-
-          <!-- book: open on her lap, a page turning now and then -->
-          <g class="book prop">
-            <path class="cover" d="M11 72 Q31 65 50 71 Q69 65 89 72 V98 Q69 92 50 98 Q31 92 11 98Z"/>
-            <path class="pg" d="M14 72 Q32 66 50 72 V96 Q32 90 14 96Z"/>
-            <path class="pg" d="M50 72 Q68 66 86 72 V96 Q68 90 50 96Z"/>
-            <path class="ln" d="M19 77 Q32 73 45 77 M19 82 Q32 78 45 82 M19 87 Q32 83 40 86 M55 77 Q68 73 81 77 M55 82 Q68 78 81 82 M55 87 Q66 83 76 86"/>
-            <path class="pg page" d="M50 72 Q68 66 86 72 V96 Q68 90 50 96Z"/>
-          </g>
-
-          <!-- plant: a pot at her side, a watering can that tips, a new leaf -->
-          <g class="plant prop">
-            <path class="pot" d="M73 84 h22 l-3 14 h-16z"/>
-            <rect class="rim" x="71" y="80" width="26" height="5" rx="2"/>
-            <path class="stem" d="M84 80 Q84 70 83 61"/>
-            <path class="leaf" d="M83.5 71 q-9 -1 -12 -9 q9 0 12 9z"/>
-            <path class="leaf" d="M83 64 q7 -5 13 -11 q-10 0 -13 11z"/>
-            <path class="leaf sprout" d="M84 75 q7 -1 10 -7 q-8 -1 -10 7z"/>
-            <g class="can">
-              <rect class="can-body" x="88" y="36" width="15" height="12" rx="3"/>
-              <path class="can-spout" d="M89 41 L79 46"/>
-              <path class="can-handle" d="M91 36 q4 -6 9 0"/>
-            </g>
-            <circle class="drop d1" cx="79" cy="49" r="1.4"/>
-            <circle class="drop d2" cx="80.5" cy="49" r="1.2"/>
-            <circle class="drop d3" cx="78" cy="49" r="1.2"/>
-          </g>
-
-          <!-- cube: twisting, scrambled, then solved -->
-          <g class="cube prop"><g class="cube-body">
-              <path class="st topa" d="M35.9 74.0 L42.0 71.0 L48.1 74.0 L42.0 77.0Z"/>
-              <path class="st topb" d="M43.9 78.0 L50.0 75.0 L56.1 78.0 L50.0 81.0Z"/>
-              <path class="st topb" d="M43.9 70.0 L50.0 67.0 L56.1 70.0 L50.0 73.0Z"/>
-              <path class="st topa" d="M51.9 74.0 L58.0 71.0 L64.1 74.0 L58.0 77.0Z"/>
-              <path class="st lfta" d="M35.0 75.4 L41.0 78.5 L41.0 84.6 L35.0 81.5Z"/>
-              <path class="st lftb" d="M35.0 83.4 L41.0 86.5 L41.0 92.6 L35.0 89.5Z"/>
-              <path class="st lftb" d="M43.0 79.4 L49.0 82.5 L49.0 88.6 L43.0 85.5Z"/>
-              <path class="st lfta" d="M43.0 87.4 L49.0 90.5 L49.0 96.6 L43.0 93.5Z"/>
-              <path class="st rgta" d="M51.0 82.5 L57.0 79.4 L57.0 85.5 L51.0 88.6Z"/>
-              <path class="st rgtb" d="M51.0 90.5 L57.0 87.4 L57.0 93.5 L51.0 96.6Z"/>
-              <path class="st rgtb" d="M59.0 78.5 L65.0 75.4 L65.0 81.5 L59.0 84.6Z"/>
-              <path class="st rgta" d="M59.0 86.5 L65.0 83.4 L65.0 89.5 L59.0 92.6Z"/>
-          </g></g>
-
-          <!-- drawing: an easel at her side, a scribble appearing -->
-          <g class="easel prop">
-            <path class="legs" d="M76 80 L72 98 M94 80 L98 98"/>
-            <rect class="board" x="70" y="53" width="30" height="28" rx="2"/>
-            <path class="ink i1" d="M74 76 q4 -12 8 -4 t8 -3 t7 -9"/>
-            <path class="ink i2" d="M75 61 q6 6 12 0 t9 2"/>
-            <circle class="ink i3" cx="92" cy="73" r="3"/>
-            <path class="brush" d="M60 70 L69 63"/>
-          </g>
-
-          <!-- morning coffee: a mug with steam, a sip now and then -->
-          <g class="mug prop">
-            <g class="mug-body">
-              <path class="steam s1" d="M73 69 q-3 -5 0 -9 t0 -9"/>
-              <path class="steam s2" d="M80 69 q3 -5 0 -9 t0 -9"/>
-              <path class="cup2" d="M66 72 h22 v15 a7 7 0 0 1 -7 7 h-8 a7 7 0 0 1 -7 -7z"/>
-              <path class="handle" d="M88 76 h3 a5 5 0 0 1 0 10 h-3"/>
-              <ellipse class="coffee" cx="77" cy="72.5" rx="10" ry="2"/>
-            </g>
-          </g>
-
-          <!-- lunch: a bowl of noodles, chopsticks going up and down -->
-          <g class="bowl prop">
-            <path class="steam s1" d="M44 74 q-3 -5 0 -9 t0 -9"/>
-            <path class="steam s2" d="M56 74 q3 -5 0 -9 t0 -9"/>
-            <g class="sticks"><path d="M60 56 L47 82 M65 57 L51 82"/></g>
-            <path class="bowl-body" d="M27 79 h46 a23 19 0 0 1 -46 0z"/>
-            <ellipse class="noodles" cx="50" cy="79.5" rx="23" ry="3.5"/>
-          </g>
-
-          <!-- night: a moon and two stars while she sleeps -->
-          <g class="moon prop">
-            <path class="crescent" d="M90 -6 a13 13 0 1 0 11 20 a10 10 0 1 1 -11 -20z"/>
-            <circle class="star t1" cx="73" cy="-2" r="1.6"/>
-            <circle class="star t2" cx="104" cy="22" r="1.3"/>
-          </g>
-        </svg>
-        <!-- floating bits, as HTML so the compositor moves them for free -->
-        <span class="float note n1">♪</span>
-        <span class="float note n2">♫</span>
-        <span class="float zz z1">z</span>
-        <span class="float zz z2">z</span>
-        <span class="float zz z3">Z</span>
-        <span class="bubble think"><i></i><i></i><i></i></span>
-        <span class="bubble talk"><i></i><i></i><i></i><i></i></span>
-      </div>
-      <span class="badge" id="badge"></span>
-    </div>
   </div>
   <script src="../i18n.js"></script>
   <script src="island.js"></script>

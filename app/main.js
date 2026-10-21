@@ -11,7 +11,6 @@ const { ChatSession, MODELS, findClaude } = require('./chat');
 const { GeminiChat, OllamaChat, ollamaModels, geminiModels, stopOllama, geminiGenerate, geminiSpeech } = require('./providers');
 const { pickDesktop } = require('./desktop');
 const setup = require('./setup');
-const media = require('./media');
 const voice = require('./assistant/voice');
 const brain = require('./assistant/brain');
 const { TOOLS, findApp } = require('./assistant/tools');
@@ -48,7 +47,7 @@ const GEOM = {
   glow: 24, // room for the shadow around the visible island
 };
 // Size of the open panel for each view (the renderer uses the same numbers).
-const VIEW_H = { home: 170, look: 410, tasks: 330, chat: 440, setup: 440, controls: 300, today: 300, clip: 380, apps: 380, wall: 250, power: 170 };
+const VIEW_H = { home: 170, look: 410, tasks: 330, chat: 440, setup: 440, controls: 320, today: 300, clip: 380, apps: 380, wall: 250, power: 170 };
 const VIEW_W = { home: 660, look: 720, tasks: 780, chat: 720, setup: 720, controls: 680, today: 780, clip: 660, apps: 700, wall: 780, power: 660 };
 const HOVER_IN_MS = 90;
 const HOVER_IN_FULLSCREEN_MS = 350; // reaching for a video's controls shouldn't pop her open
@@ -71,7 +70,7 @@ const state = {
   view: 'home', // which view the open panel shows
   pokeUntil: 0, // SIGHUP: act as if the mouse were on her for a moment
   news: false, // a reply came while you were away, not seen yet
-  music: false, // a music player (not a video) is playing: she listens along
+  byKey: false, // opened with the Super key: stays open until Super again, Esc, or the keyboard goes elsewhere
   voice: 'idle', // idle | listening | thinking | speaking
 };
 let hoverSince = 0;
@@ -110,7 +109,9 @@ function place() {
   const d = screen.getPrimaryDisplay();
   const area = d.workArea;
   const x = Math.round(area.x + (area.width - GEOM.winW) / 2);
-  layout.panel = Math.max(0, area.y - d.bounds.y) + cfg.island_y_offset;
+  // With GNOME's panel hidden the strip at the top is kept free for her (the helper reserves it): she sits in it.
+  const ownStrip = cfg.hide_gnome_panel && desktop.name === 'gnome' && desktop.version >= 3;
+  layout.panel = (ownStrip ? 0 : Math.max(0, area.y - d.bounds.y)) + cfg.island_y_offset;
   layout.winH = GEOM.winH + layout.panel;
   win.setBounds({ x, y: d.bounds.y, width: GEOM.winW, height: layout.winH });
   relayout(true);
@@ -123,7 +124,7 @@ function place() {
 const gameMode = () => state.game && cfg.hide_in_games;
 // Out of sight: a Steam game (with peeks) or any other fullscreen, like a video (without).
 const hideMode = () => gameMode() || (state.fullscreen && !state.game && cfg.hide_in_fullscreen);
-const PREFS = ['hide_in_games', 'hide_in_fullscreen', 'chat_provider', 'language', 'voice_followup', 'voice_cloud', 'hide_gnome_panel'];
+const PREFS = ['hide_in_games', 'hide_in_fullscreen', 'chat_provider', 'language', 'voice_followup', 'voice_cloud', 'hide_gnome_panel', 'super_opens', 'bar_content'];
 const prefs = () => ({ ...Object.fromEntries(PREFS.map((k) => [k, cfg[k]])), lang: i18n.lang(), panelOk: desktop?.name === 'gnome' });
 
 /** "system" follows the desktop's language; pt, en and es pick one. */
@@ -245,7 +246,6 @@ function pushState() {
   send('state', {
     expanded: state.expanded,
     paused: state.paused,
-    music: state.music,
     issue: currentIssue(),
     notice: n && { kind: n.kind, title: n.title, lines: n.lines, actions: n.actions ?? [] },
   });
@@ -388,6 +388,7 @@ let lastOutside = null; // the window you were in before opening her (to paste b
 function setExpanded(on) {
   if (state.expanded === on) return;
   state.expanded = on;
+  if (!on) state.byKey = false;
   if (on) desktop.activeWindow((id) => (lastOutside = id));
   if (!on) giveFocusBack();
   applyShape();
@@ -565,9 +566,7 @@ function tick() {
   const key = `${p.x},${p.y},${armed}`;
   if (key !== lastCursor) {
     lastCursor = key;
-    const b = screen.getPrimaryDisplay().bounds;
-    // Off the primary monitor she stops chasing it and looks around on her own.
-    send('cursor', { ...p, armed, near: c.x >= b.x && c.x < b.x + b.width && c.y >= b.y && c.y < b.y + b.height });
+    send('cursor', { ...p, armed });
   }
 
   if (state.notice && now >= state.notice.until) {
@@ -593,6 +592,7 @@ function tick() {
     state.notice ||
     (state.view === 'chat' && win.isFocused()) || // typing: the pointer may wander off
     state.view === 'setup' || // the wizard stays until it is finished or skipped
+    (state.byKey && win.isFocused()) || // opened with Super: until Super again, Esc, or a click elsewhere
     now < state.pokeUntil
   ) {
     leaveSince = 0;
@@ -664,11 +664,9 @@ function createWindow() {
     relayout(true);
     pushStats(true);
     check();
-    send('look', { body: cfg.body_color, eye: cfg.eye_color });
+    send('accent', cfg.accent_color);
     send('prefs', prefs());
-    const demo = process.argv.find((a) => a.startsWith('--demo='));
-    if (demo) send('demo', demo.slice(7));
-    else if (!cfg.setup_done) openSetup(); // first run: the wizard instead of the hello
+    if (!cfg.setup_done) openSetup(); // first run: the wizard instead of the hello
     else notify('hello', t('hello.title'), [t('hello.line')], 6);
     if (state.pinned) setExpanded(true);
   });
@@ -692,7 +690,7 @@ ipcMain.handle('clipboard-text', () => clipboard.readText().trim().slice(0, 4000
 ipcMain.on('view', (_e, view) => {
   if (!(view in VIEW_H) || view === state.view) return;
   state.view = view;
-  if (view !== 'chat') giveFocusBack();
+  if (view !== 'chat' && !state.byKey) giveFocusBack();
   applyShape();
 });
 ipcMain.on('collapse', () => setExpanded(false));
@@ -1067,6 +1065,8 @@ const WS = {
   },
   // restart / shut down / log out come back with { confirm } first; the page asks, then sends sure: true
   'power.do': ({ action, sure } = {}) => (POWER_CONFIRM.has(action) && !sure ? { confirm: true } : files.power(action)),
+  'sys.overview': () => (setExpanded(false), desktop.overview()),
+  'sys.settings': () => (setExpanded(false), files.launch('org.gnome.Settings') || files.launch('gnome-control-center')),
 };
 ipcMain.handle('ws', async (_e, action, args) => {
   const fn = WS[action];
@@ -1179,13 +1179,15 @@ ipcMain.handle('task-kill', (_e, name) => (typeof name === 'string' ? killApp(na
 ipcMain.on('action', (_e, id) => typeof id === 'string' && runAction(id));
 ipcMain.on('set-pref', (_e, key, value) => {
   if (!PREFS.includes(key)) return;
-  const valid = { chat_provider: ['claude', 'gemini', 'ollama'], language: ['system', ...i18n.LANGS] }[key];
+  const valid = { chat_provider: ['claude', 'gemini', 'ollama'], language: ['system', ...i18n.LANGS], bar_content: ['info', 'clock', 'both'] }[key];
   if (valid ? !valid.includes(value) : typeof value !== 'boolean') return;
   cfg[key] = value;
   try {
     config.save(key, value);
   } catch {}
-  if (key === 'hide_gnome_panel' && !desktop.setPanel(value) && desktop.name === 'gnome') {
+  const helper = { hide_gnome_panel: () => desktop.setPanel(value, GEOM.pill.h), super_opens: () => desktop.setSuper(value) }[key];
+  if (key === 'hide_gnome_panel') setTimeout(() => alive() && place(), 600);
+  if (helper && !helper() && desktop.name === 'gnome') {
     // the shell still runs an older helper: put the new one in place; it loads when GNOME restarts
     setup.installExtension().then(() => notify('info', t('panel.restart'), [t('panel.restart_hint')], 15));
   }
@@ -1198,14 +1200,11 @@ ipcMain.on('set-pref', (_e, key, value) => {
   relayout();
   send('prefs', prefs());
 });
-ipcMain.on('set-look', (_e, look) => {
-  const ok = (c) => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c);
-  if (!ok(look?.body) || !ok(look?.eye)) return;
-  cfg.body_color = look.body;
-  cfg.eye_color = look.eye;
+ipcMain.on('set-accent', (_e, color) => {
+  if (typeof color !== 'string' || !/^#[0-9a-f]{6}$/i.test(color)) return;
+  cfg.accent_color = color.toLowerCase();
   try {
-    config.save('body_color', look.body);
-    config.save('eye_color', look.eye);
+    config.save('accent_color', cfg.accent_color);
   } catch {}
 });
 
@@ -1265,6 +1264,14 @@ const desktopCtx = {
 };
 const desktopEvents = {
   pointer: (p) => (pointer = p),
+  // The Super key, when it is hers: open (with the keyboard, like a start menu) or close.
+  superKey: () => {
+    if (state.expanded) return setExpanded(false);
+    if (layout.hidden) return;
+    setExpanded(true);
+    state.byKey = true;
+    takeFocus();
+  },
   fullscreen: (full, game) => {
     if (full === state.fullscreen && game === state.game) return;
     const wasGame = state.game;
@@ -1289,7 +1296,9 @@ function startDesktop() {
     desktop = d;
     console.log(`[lydia] desktop: ${d.name}`);
     d.start();
-    if (cfg.hide_gnome_panel) d.setPanel(true);
+    if (cfg.hide_gnome_panel) d.setPanel(true, GEOM.pill.h);
+    if (cfg.hide_gnome_panel) setTimeout(() => alive() && place(), 1500); // the helper's version is known by then
+    if (cfg.super_opens) d.setSuper(true);
     if (alive()) applyShape(); // with no pointer source the pill takes the mouse itself
     send('prefs', prefs()); // now it is known whether the panel can be hidden
   });
@@ -1358,17 +1367,6 @@ app.whenReady().then(() => {
   every(50, tick);
   every(15_000, checkTasks);
   clip.start(() => send('clip-changed'));
-  let asking = false; // one MPRIS look at a time
-  every(4000, async () => {
-    if (asking) return;
-    asking = true;
-    const music = await media.musicPlaying().catch(() => false);
-    asking = false;
-    if (music !== state.music) {
-      state.music = music;
-      pushState();
-    }
-  });
   every(cfg.check_interval_seconds * 1000, check);
   let beat = 0; // open: every 1.5 s; collapsed (only the pill shows them): every 3 s
   every(1500, () => (state.expanded || ++beat % 2 === 0) && pushStats());
@@ -1409,7 +1407,7 @@ process.on('SIGUSR2', () => {
   else if (verb === 'cutucar') {
     state.pokeUntil = Date.now() + 3500; // as if the mouse were on her for a moment
     setExpanded(true);
-  } else if (verb === 'demo') send('demo', arg);
+  }
   else if (verb === 'falar') handle(cmd.slice(6).trim(), { spoken: true }); // as if said aloud (tests without a mic)
   else if (verb === 'ditar') polish(cmd.slice(6).trim()).then(typeOut); // as if dictated (tests without a mic)
   else if (verb === 'limpar') {

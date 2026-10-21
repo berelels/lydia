@@ -1,10 +1,8 @@
 const $ = (id) => document.getElementById(id);
 const island = $('island');
-const orb = $('lydia');
 const { t } = i18n; // i18n.js, loaded before this file
 i18n.setLang(i18n.resolve('system', navigator.languages)); // until the saved choice arrives
 const fmt = (x) => i18n.num(x);
-const rand = (a, b) => a + Math.random() * (b - a);
 
 let state = { expanded: false, paused: false, issue: null, notice: null };
 let stats = null;
@@ -103,27 +101,28 @@ function renderStats() {
   gauge('g-disk', disk.percent, `${Math.round(disk.percent)}%`, t('metric.free', { n: fmt(Math.round(disk.freeGB)) }), disk.percent >= 92);
 }
 
-// ---------- collapsed pill: cycles RAM → CPU → Disco → Temp ----------
+// ---------- the closed bar: a clock and/or RAM → CPU → Disk → Temp in turns ----------
+// (prefs.bar_content: "info", "clock" or "both"; something important shows in any case)
 
 let pillIndex = 0;
-function setPill(label, value) {
+function setPill(label, value, important = false) {
   $('pill-label').textContent = label;
   $('pill-value').textContent = value;
+  $('pill-metric').classList.toggle('important', important);
 }
+function renderBarClock() {
+  $('pill-clock').textContent = new Intl.DateTimeFormat(i18n.htmlLang(), { hour: '2-digit', minute: '2-digit' }).format(new Date());
+}
+renderBarClock();
+setInterval(renderBarClock, 5000);
 function renderPill(advance) {
   if (!stats) return;
-  if (state.paused) {
-    setPill(t('pill.paused'), '');
-    return;
-  }
-  if (voiceState === 'listening' || voiceState === 'thinking') return setPill(t(voiceState === 'listening' ? 'voice.listening' : 'voice.thinking'), '');
-  if (state.issue) {
-    setPill(...state.issue.pill); // stay on the problem instead of cycling
-    return;
-  }
-  if (pillNote && Date.now() < pillNote.until) return setPill(pillNote.label, pillNote.value);
+  if (state.paused) return setPill(t('pill.paused'), '', true);
+  if (voiceState === 'listening' || voiceState === 'thinking') return setPill(t(voiceState === 'listening' ? 'voice.listening' : 'voice.thinking'), '', true);
+  if (state.issue) return setPill(...state.issue.pill, true); // stay on the problem instead of cycling
+  if (pillNote && Date.now() < pillNote.until) return setPill(pillNote.label, pillNote.value, true);
   const news = badges.chat; // stays in the pill until you look at it
-  if (news) return setPill(news.label, news.value);
+  if (news) return setPill(news.label, news.value, true);
   const list = metrics();
   if (advance) pillIndex = (pillIndex + 1) % list.length;
   const [label, value] = list[pillIndex % list.length];
@@ -140,129 +139,12 @@ function renderPill(advance) {
 }
 setInterval(() => !state.expanded && renderPill(true), 3500);
 
-// ---------- expressions (she has no mouth: it is all in the eyes) ----------
-
-let happyTimer = 0;
-function smile(ms) {
-  orb.classList.add('happy');
-  clearTimeout(happyTimer);
-  happyTimer = setTimeout(() => orb.classList.remove('happy'), ms);
-}
-
-// A little timeline of class changes, cancelled if another one starts.
-let scene = [];
-function play(steps) {
-  scene.forEach(clearTimeout);
-  scene = steps.map(([at, fn]) => setTimeout(fn, at));
-}
-const add = (...c) => () => orb.classList.add(...c);
-const drop = (...c) => () => orb.classList.remove(...c);
-
-// ---------- idle activities, and how she reacts when you come close ----------
-
-// Picked at random when idle. Music is not (she listens only when music really
-// plays).
-const ACTIVITIES = ['nap', 'game', 'book', 'plant', 'cube', 'draw', 'coffee', 'lunch'];
-
-/** The part of the day: coffee in the morning, lunch around noon, sleepy at night. */
-function dayPart(d = new Date()) {
-  const h = d.getHours() + d.getMinutes() / 60;
-  if (h >= 22 || h < 6) return 'night';
-  if (h < 11) return 'morning';
-  if (h >= 11.5 && h < 14) return 'noon';
-  return 'day';
-}
-/** A random idle activity, weighted by the time of day. */
-function pickActivity() {
-  const part = dayPart();
-  const weights = { nap: part === 'night' ? 4 : 1, game: 1, book: 1, plant: 1, cube: 1, draw: 1, coffee: part === 'morning' ? 3 : 0, lunch: part === 'noon' ? 3 : 0 };
-  let r = Math.random() * Object.values(weights).reduce((a, b) => a + b, 0);
-  for (const [name, w] of Object.entries(weights)) if ((r -= w) < 0) return name;
-  return 'nap';
-}
-setInterval(() => (orb.dataset.time = dayPart()), 60_000);
-let activity = 'none';
-let activityTimer = 0;
-
-let compact = false; // fullscreen notch: small, but she still naps, listens to music, plays
-let gone = false; // hidden for a game or a video: nobody to see her
-const idle = () => !state.expanded && !state.issue && !state.paused && !state.notice && !gone;
-
-function setActivity(name) {
-  activity = name;
-  orb.dataset.activity = name;
-}
-
-function scheduleActivity(ms) {
-  clearTimeout(activityTimer);
-  activityTimer = setTimeout(() => {
-    if (!idle() || activity !== 'none') return scheduleActivity(15_000);
-    startActivity(pickActivity(), rand(25_000, 50_000));
-  }, ms);
-}
-
-function startActivity(name, ms) {
-  play([]);
-  orb.classList.remove('startle', 'wake', 'happy');
-  setActivity(name);
-  clearTimeout(activityTimer);
-  activityTimer = setTimeout(() => {
-    setActivity('none');
-    scheduleActivity(rand(30_000, 70_000));
-  }, ms);
-}
-
-/** Someone came close while she was busy: react, then go back to normal. */
-function react() {
-  const was = activity;
-  if (was === 'none') return false;
-  clearTimeout(activityTimer);
-  if (was === 'music') {
-    play([
-      [0, add('startle')],
-      [900, () => setActivity('none')],
-      [1000, drop('startle')],
-      [1250, () => smile(900)],
-    ]);
-  } else if (was !== 'nap') {
-    // game, book, plant, cube, drawing, coffee, lunch: a start, whatever she held goes flying, a blink
-    play([
-      [0, add('startle')],
-      [900, () => setActivity('none')],
-      [1000, drop('startle')],
-      [1150, add('blink')],
-      [1260, drop('blink')],
-    ]);
-  } else if (was === 'nap') {
-    play([
-      [0, () => setActivity('none')],
-      [0, add('wake')],
-      [700, drop('wake')],
-      [850, add('blink')],
-      [960, drop('blink')],
-      [1100, add('blink')],
-      [1210, drop('blink')],
-    ]);
-  }
-  scheduleActivity(rand(40_000, 80_000));
-  return true;
-}
-
-function stopActivityQuietly() {
-  if (activity === 'none') return;
-  play([]);
-  orb.classList.remove('startle', 'wake');
-  setActivity('none');
-  scheduleActivity(rand(30_000, 60_000));
-}
-
-orb.dataset.time = dayPart();
-scheduleActivity(rand(20_000, 40_000));
+let compact = false; // fullscreen: the bar shrinks to a small notch (only the clock)
+let gone = false; // hidden for a game or a video
 
 // ---------- state from the main process ----------
 
 window.lydia.on('state', (s) => {
-  const opened = s.expanded && !state.expanded;
   const kind = s.notice?.kind;
   const newNotice = kind && kind !== state.notice?.kind;
   // A notice or a problem shows on the home view (it opens the island for it);
@@ -271,13 +153,8 @@ window.lydia.on('state', (s) => {
   if (newNotice || (s.issue && !state.issue)) setView('home');
   else if ((!s.expanded && state.expanded) || (!telling && island.dataset.view === 'home')) setView(telling ? 'home' : lastTab);
   state = s;
-  if (s.issue || s.paused) stopActivityQuietly();
-  syncMusic();
   render();
   if (stats) renderStats();
-  if (opened && react()) return;
-  if (newNotice && (kind === 'hello' || kind === 'ok')) smile(1800);
-  else if (opened && !s.issue && !s.paused && !s.notice) smile(900);
 });
 window.lydia.on('stats', (s) => {
   stats = s;
@@ -306,7 +183,6 @@ window.lydia.on('layout', (l) => {
   island.classList.toggle('gone', !!l.hidden);
   island.classList.toggle('peek', !!l.peek);
   gone = !!l.hidden && !l.peek;
-  if (gone) stopActivityQuietly();
   if (!laidOut) {
     void island.offsetHeight;
     island.style.transition = '';
@@ -315,6 +191,9 @@ window.lydia.on('layout', (l) => {
 });
 window.lydia.on('prefs', (p) => {
   $('language').value = p.language;
+  island.dataset.bar = p.bar_content;
+  for (const b of document.querySelectorAll('#bar-content button')) b.classList.toggle('on', b.dataset.v === p.bar_content);
+  document.querySelector('.switch[data-pref="super_opens"]').hidden = !p.panelOk;
   if (p.lang !== i18n.lang()) {
     i18n.setLang(p.lang);
     translatePage();
@@ -326,143 +205,68 @@ window.lydia.on('prefs', (p) => {
     sw.setAttribute('aria-checked', String(!!p[sw.dataset.pref]));
   }
 });
-window.lydia.on('demo', (name) => [...ACTIVITIES, 'music'].includes(name) && startActivity(name, 10 * 60_000));
 window.lydia.on('view', (v) => setView(v, false));
 
-// ---------- eyes follow the mouse ----------
+// ---------- the pointer passing over the closed bar ----------
 
-// While the mouse moves on her monitor she follows it; when it rests or is on
-// another monitor she looks around on her own, mostly down at the screen, as if
-// watching what you are watching.
-let lastMove = 0;
-function lookAt(x, y) {
-  orb.style.setProperty('--lx', x.toFixed(2));
-  orb.style.setProperty('--ly', y.toFixed(2));
-}
 window.lydia.on('cursor', (p) => {
-  // passing over the collapsed pill without pulling it: fade so what's below shows
+  // passing over it without pulling it down: fade so what's below shows
   const ir = island.getBoundingClientRect();
   const over = p.x >= ir.left && p.x < ir.right && p.y >= ir.top && p.y < ir.bottom;
   island.classList.toggle('ghost', over && !p.armed && !state.expanded && island.classList.contains('edge'));
-  if (!p.near) return;
-  lastMove = Date.now();
-  const r = orb.getBoundingClientRect();
-  const dx = p.x - (r.left + r.width / 2);
-  const dy = p.y - (r.top + r.height / 2);
-  const dist = Math.hypot(dx, dy) || 1;
-  const reach = 6 * Math.min(1, dist / 260); // in SVG units
-  lookAt((dx / dist) * reach, (dy / dist) * reach * 0.75);
 });
 
-const GLANCES = [
-  [0, 5.5, 3], // down at the screen (the most common, hence repeated)
-  [0, 5.5, 3],
-  [-2.5, 5, 2],
-  [2.5, 5, 2],
-  [-5.5, 1, 1],
-  [5.5, 1, 1],
-  [0, 0, 1],
-];
-function wander() {
-  setTimeout(wander, rand(1800, 4200));
-  if (Date.now() - lastMove < 3000) return; // the mouse leads for now
-  const [x, y] = GLANCES[Math.floor(Math.random() * GLANCES.length)];
-  lookAt(x, y);
-}
-setTimeout(wander, 2000);
+// ---------- accent color ----------
 
-// ---------- blinking ----------
-
-function blinkLater() {
-  setTimeout(() => {
-    const busy = state.paused || activity === 'nap' || activity === 'music' || orb.classList.contains('happy');
-    if (!busy) {
-      orb.classList.add('blink');
-      setTimeout(() => orb.classList.remove('blink'), 120);
-      if (Math.random() < 0.2) {
-        setTimeout(() => orb.classList.add('blink'), 240);
-        setTimeout(() => orb.classList.remove('blink'), 360);
-      }
-    }
-    blinkLater();
-  }, 2500 + Math.random() * 3500);
-}
-blinkLater();
-
-// ---------- colors ----------
-
-const BODY = ['#8f63f7', '#4f7cff', '#1fb5c9', '#2fbf71', '#f2a33a', '#ec5fa8', '#6b6f80', '#e6e2f0'];
-const EYES = ['#f6f1ff', '#a5f3fc', '#fde68a', '#fbcfe8', '#bbf7d0', '#17131f'];
-const DEFAULT = { body: BODY[0], eye: EYES[0] };
-let look = { ...DEFAULT };
+const ACCENTS = ['#8f63f7', '#4f7cff', '#1fb5c9', '#2fbf71', '#f2a33a', '#ec5fa8', '#6b6f80', '#e6e2f0'];
+const DEFAULT_ACCENT = ACCENTS[0];
+let accent = DEFAULT_ACCENT;
 
 const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 const toHex = (rgb) => '#' + rgb.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
 const mix = (a, b, t) => toHex(hex(a).map((v, i) => v + (hex(b)[i] - v) * t));
 
-/** One picked color becomes the orb's four gradient stops: highlight → deep shade. */
-function applyLook(l) {
-  look = { ...DEFAULT, ...l };
-  const s = orb.style;
-  s.setProperty('--b0', mix(look.body, '#ffffff', 0.6));
-  s.setProperty('--b1', look.body);
-  s.setProperty('--b2', mix(look.body, '#000000', 0.3));
-  s.setProperty('--b3', mix(look.body, '#000000', 0.58));
-  s.setProperty('--eye-user', look.eye);
-  // her color is the island's accent (the active tab, switches, sliders), with a readable ink on it
+/** The active tab, switches and sliders take it, with a readable ink on top. */
+function applyAccent(color) {
+  accent = color || DEFAULT_ACCENT;
   const css = document.documentElement.style;
-  css.setProperty('--lav', mix(look.body, '#ffffff', 0.12));
-  const [r, g, b] = hex(look.body);
+  css.setProperty('--lav', mix(accent, '#ffffff', 0.12));
+  const [r, g, b] = hex(accent);
   css.setProperty('--lav-ink', 0.299 * r + 0.587 * g + 0.114 * b > 160 ? '#111' : '#fff');
-  markSwatches();
+  for (const b of $('sw-accent').querySelectorAll('.swatch[data-color]')) b.classList.toggle('on', b.dataset.color === accent);
+}
+function pickAccent(color) {
+  applyAccent(color);
+  window.lydia.setAccent(color);
 }
 
-function swatchRow(id, colors, key) {
-  const row = $(id);
-  for (const c of colors) {
-    const b = document.createElement('button');
-    b.className = 'swatch';
-    b.style.setProperty('--c', c);
-    b.dataset.color = c;
-    b.title = c;
-    b.addEventListener('click', () => pick(key, c));
-    row.append(b);
-  }
+for (const c of ACCENTS) {
+  const b = document.createElement('button');
+  b.className = 'swatch';
+  b.style.setProperty('--c', c);
+  b.dataset.color = c;
+  b.title = c;
+  b.addEventListener('click', () => pickAccent(c));
+  $('sw-accent').append(b);
+}
+{
   const custom = document.createElement('label');
   custom.className = 'swatch custom';
-  custom.title = t('look.custom');
   const input = document.createElement('input');
   input.type = 'color';
-  input.addEventListener('input', () => applyLook({ ...look, [key]: input.value }));
-  input.addEventListener('change', () => pick(key, input.value));
+  input.addEventListener('input', () => applyAccent(input.value));
+  input.addEventListener('change', () => pickAccent(input.value));
   custom.append(input);
-  row.append(custom);
+  $('sw-accent').append(custom);
 }
-
-function markSwatches() {
-  for (const [id, key] of [['sw-body', 'body'], ['sw-eye', 'eye']]) {
-    for (const b of $(id).querySelectorAll('.swatch[data-color]')) b.classList.toggle('on', b.dataset.color === look[key]);
-  }
-}
-
-function pick(key, color) {
-  applyLook({ ...look, [key]: color });
-  window.lydia.setLook(look);
-}
-
-swatchRow('sw-body', BODY, 'body');
-swatchRow('sw-eye', EYES, 'eye');
-$('look-reset').addEventListener('click', () => {
-  applyLook(DEFAULT);
-  window.lydia.setLook(look);
-});
-window.lydia.on('look', applyLook);
-applyLook(DEFAULT);
+$('look-reset').addEventListener('click', () => pickAccent(DEFAULT_ACCENT));
+window.lydia.on('accent', applyAccent);
+applyAccent(DEFAULT_ACCENT);
 
 // ---------- views and input ----------
 
 // Same heights as VIEW_H in main.js (it shapes the clickable area from them).
-const VIEW_H = { home: 170, look: 410, tasks: 330, chat: 440, setup: 440, controls: 300, today: 300, clip: 380, apps: 380, wall: 250, power: 170 };
+const VIEW_H = { home: 170, look: 410, tasks: 330, chat: 440, setup: 440, controls: 320, today: 300, clip: 380, apps: 380, wall: 250, power: 170 };
 const VIEW_W = { home: 660, look: 720, tasks: 780, chat: 720, setup: 720, controls: 680, today: 780, clip: 660, apps: 700, wall: 780, power: 660 };
 let lastTab = 'controls'; // opening again (with nothing to tell) goes back to it
 function setView(view, tell = true) {
@@ -492,9 +296,11 @@ for (const sw of document.querySelectorAll('.switch[data-pref]')) {
 for (const b of document.querySelectorAll('#default-provider button')) {
   b.addEventListener('click', () => window.lydia.setPref('chat_provider', b.dataset.p));
 }
-for (const b of document.querySelectorAll('.play button')) {
-  b.addEventListener('click', () => startActivity(b.dataset.activity, rand(40_000, 60_000)));
+for (const b of document.querySelectorAll('#bar-content button')) {
+  b.addEventListener('click', () => window.lydia.setPref('bar_content', b.dataset.v));
 }
+$('btn-overview').addEventListener('click', () => window.lydia.ws('sys.overview'));
+$('btn-settings').addEventListener('click', () => window.lydia.ws('sys.settings'));
 
 $('language').addEventListener('change', (e) => window.lydia.setPref('language', e.target.value));
 
@@ -539,8 +345,6 @@ function notifyBadge(kind, label, value, extra) {
   renderBadge();
   pillNote = { label, value, until: Date.now() + 6000 };
   renderPill(false);
-  orb.classList.add('notify');
-  setTimeout(() => orb.classList.remove('notify'), 1200);
 }
 const looking = (view) => state.expanded && island.dataset.view === view;
 // ---------- task manager ----------
@@ -592,22 +396,6 @@ for (const b of document.querySelectorAll('#tasks-sort button')) {
     for (const x of document.querySelectorAll('#tasks-sort button')) x.classList.toggle('on', x === b);
     loadTasks();
   });
-}
-
-// ---------- music ----------
-
-let musicFromPlayer = false;
-
-/** Music playing in a player (a video or a film doesn't count): she listens along. */
-function syncMusic() {
-  const music = !!state.music && !state.issue && !state.paused && !gone;
-  if (music && activity !== 'music') {
-    startActivity('music', 6 * 60 * 60_000);
-    musicFromPlayer = true;
-  } else if (!music && musicFromPlayer) {
-    musicFromPlayer = false;
-    if (activity === 'music') stopActivityQuietly();
-  }
 }
 
 // ---------- chat (temporary: nothing is saved, it all goes on "Nova conversa") ----------
@@ -785,12 +573,7 @@ refreshProvider();
 window.lydia.on('chat', (e) => {
   if (e.type === 'state') {
     // Gemini busy: say why it takes long, until the reply starts.
-    if (e.state === 'retrying' || e.state === 'note') {
-      if (current && !raw) current.innerHTML = `<span class="hint">${esc(t('chat.retrying'))}</span>`;
-      return;
-    }
-    orb.classList.toggle('think', e.state === 'thinking');
-    orb.classList.toggle('talk', e.state === 'speaking');
+    if ((e.state === 'retrying' || e.state === 'note') && current && !raw) current.innerHTML = `<span class="hint">${esc(t('chat.retrying'))}</span>`;
   } else if (e.type === 'delta' && current) {
     raw += e.text;
     current.innerHTML = md(raw);
@@ -802,7 +585,6 @@ window.lydia.on('chat', (e) => {
     if (!looking('chat') && !e.error) notifyBadge('chat', 'Chat', t('chat.new_reply'), { text: t('news.chat'), see: t('news.see_chat'), open: () => setView('chat') });
     chatBusy = false;
     $('chat-send').disabled = false;
-    if (voiceState !== 'speaking') orb.classList.remove('think', 'talk'); // the reply is over (unless she is saying it)
     if (current) {
       current.classList.remove('typing');
       if (e.error) {
@@ -816,7 +598,6 @@ window.lydia.on('chat', (e) => {
     chatBusy = false;
     current = null;
     $('chat-send').disabled = false;
-    orb.classList.remove('think', 'talk');
     hello();
   }
 });
@@ -1058,7 +839,6 @@ window.addEventListener('contextmenu', (e) => {
     window.lydia.editMenu();
   } else window.lydia.menu();
 });
-orb.addEventListener('click', () => smile(1200));
 // Where the desktop can't report the pointer (Wayland with no helper), hover comes from here.
 island.addEventListener('mouseenter', () => window.lydia.hover(true));
 island.addEventListener('mouseleave', () => window.lydia.hover(false));
@@ -1068,15 +848,11 @@ $('btn-mic').addEventListener('click', () => window.lydia.voiceToggle());
 
 let voiceState = 'idle';
 window.lydia.on('voice', (v) => {
-  if (v.level != null) orb.style.setProperty('--lv', v.level.toFixed(2));
+  if (v.level != null) island.style.setProperty('--lv', v.level.toFixed(2));
   if (v.state === voiceState && v.heard == null) return;
   voiceState = v.state;
-  orb.classList.toggle('listen', v.state === 'listening');
-  orb.classList.toggle('think', v.state === 'thinking');
-  orb.classList.toggle('talk', v.state === 'speaking');
-  island.classList.toggle('listening', v.state === 'listening');
+  island.dataset.voice = v.state;
   $('btn-mic').classList.toggle('on', v.state === 'listening');
-  if (v.state !== 'idle') stopActivityQuietly();
   renderPill(false);
 });
 // A spoken question goes to the chat too, so the answer stays there.

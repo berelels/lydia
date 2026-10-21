@@ -20,6 +20,12 @@ class NoDesktop {
   setPanel() {
     return false; // only the GNOME helper can
   }
+  setSuper() {
+    return false;
+  }
+  overview() {
+    return false;
+  }
   focusSelf(win) {
     win.focus();
     win.webContents.focus();

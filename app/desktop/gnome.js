@@ -24,6 +24,8 @@ class GnomeDesktop {
     this.monitor = null;
     this.timer = 0;
     this.panelHidden = false;
+    this.reserve = 0; // the strip kept free for her bar while the panel is hidden
+    this.superMine = false;
     this.version = 0; // of the extension running in the shell (Watch says it)
   }
 
@@ -40,6 +42,8 @@ class GnomeDesktop {
         // /lydia/Desktop: lydia.Desktop.Pointer (512, 3)
         let m = /\.Pointer \((-?\d+), (-?\d+)\)/.exec(line);
         if (m) pointer = { x: Number(m[1]), y: Number(m[2]) };
+        // /lydia/Desktop: lydia.Desktop.Super ()
+        if (/\.Super \(\)/.test(line)) this.events.superKey();
         // /lydia/Desktop: lydia.Desktop.Windows (true, 'steam_app_620', uint32 4242, false)
         m = /\.Windows \((true|false), '((?:[^'\\]|\\.)*)', (?:uint32 )?(\d+), (true|false)\)/.exec(line);
         if (m) {
@@ -55,7 +59,10 @@ class GnomeDesktop {
       call('Watch', [process.pid, Math.round(z.x), Math.round(z.y), Math.round(z.width), Math.round(z.height)], (err, out) => {
         if (!err) this.version = Number(/uint32 (\d+)/.exec(out)?.[1]) || this.version;
       });
-      if (this.panelHidden) call('SetPanel', ['true']); // again: the extension may have been reloaded
+      // again: the extension may have been reloaded
+      if (this.panelHidden) call('SetPanel', ['true']);
+      if (this.panelHidden && this.version >= 3) call('Reserve', [this.reserve]);
+      if (this.superMine) call('SetSuper', ['true']);
     };
     // The monitor needs a moment to subscribe before the first Watch makes the extension report.
     setTimeout(watch, 300);
@@ -63,16 +70,34 @@ class GnomeDesktop {
   }
 
   stop() {
-    if (this.panelHidden) call('SetPanel', ['false']); // back at once, not when the extension notices she's gone
+    // back at once, not when the extension notices she's gone
+    if (this.panelHidden) call('SetPanel', ['false']);
+    if (this.superMine) call('SetSuper', ['false']);
     clearInterval(this.timer);
     this.monitor?.kill();
   }
 
   /** Hide GNOME's top panel while she runs (the extension brings it back when she stops). */
-  setPanel(hidden) {
+  setPanel(hidden, reserve = 0) {
     this.panelHidden = hidden;
+    this.reserve = reserve;
+    if (this.version >= 3) call('Reserve', [hidden ? reserve : 0]);
     call('SetPanel', [hidden ? 'true' : 'false']);
     return !hidden || this.version >= 2; // older helpers don't know how (yet: the shell runs the old copy until it restarts)
+  }
+
+  /** The Super key opens her instead of the overview. */
+  setSuper(mine) {
+    this.superMine = mine;
+    call('SetSuper', [mine ? 'true' : 'false']);
+    return !mine || this.version >= 3;
+  }
+
+  overview() {
+    if (this.version >= 3) call('Overview');
+    else if (process.env.XDG_SESSION_TYPE !== 'wayland') execFile('xdotool', ['key', 'super'], { timeout: 1000 }, () => {}); // an older helper
+    else return false;
+    return true;
   }
 
   activeWindow(cb) {

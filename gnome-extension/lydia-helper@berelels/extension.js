@@ -2,11 +2,14 @@
 // X11): where the pointer is, whether a window is fullscreen on the primary
 // monitor (and which), and whether one reaches the strip below the top panel.
 // Exposed on the session bus as lydia.Desktop. Idle unless Lydia keeps calling Watch.
-// It can also hide the top panel while Lydia runs (she takes its place); it
-// comes back in the overview, and for good as soon as Lydia stops calling.
+// It can also hide the top panel while Lydia runs (she takes its place), and
+// hand her the Super key (it opens her instead of the overview); both come
+// back as soon as Lydia stops calling.
 import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
 import Gio from 'gi://Gio';
 import Meta from 'gi://Meta';
+import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
@@ -33,6 +36,14 @@ const IFACE = `
     <method name="SetPanel">
       <arg type="b" name="hidden" direction="in"/>
     </method>
+    <method name="Reserve">
+      <arg type="u" name="height" direction="in"/>
+    </method>
+    <method name="SetSuper">
+      <arg type="b" name="mine" direction="in"/>
+    </method>
+    <method name="Overview"/>
+    <signal name="Super"/>
     <signal name="Pointer">
       <arg type="i" name="x"/>
       <arg type="i" name="y"/>
@@ -46,7 +57,7 @@ const IFACE = `
   </interface>
 </node>`;
 
-const VERSION = 2;
+const VERSION = 3;
 const KEEPALIVE_MS = 15000; // Lydia calls Watch every 5 s; silent this long, she is gone
 const POINTER_MS = 50;
 const WINDOWS_MS = 700; // moves and resizes have no cheap global signal
@@ -65,6 +76,11 @@ export default class LydiaHelper extends Extension {
     this._timers = [];
     this._wantHidden = false;
     this._panelHidden = false;
+    this._wantSuper = false;
+    this._superId = 0; // our overlay-key handler while the Super key is Lydia's
+    this._reserve = 0; // with the panel hidden: the strip kept free for Lydia's bar
+    this._spacer = null;
+    this._monitors = Main.layoutManager.connect('monitors-changed', () => this._setSpacer(this._panelHidden ? this._reserve : 0, true));
     this._overview = [
       Main.overview.connect('showing', () => this._panelHidden && Main.layoutManager.panelBox.show()),
       Main.overview.connect('hiding', () => this._panelHidden && Main.layoutManager.panelBox.hide()),
@@ -74,7 +90,10 @@ export default class LydiaHelper extends Extension {
   disable() {
     this._wantHidden = false;
     this._applyPanel();
+    this._wantSuper = false;
+    this._applySuper();
     for (const id of this._overview) Main.overview.disconnect(id);
+    Main.layoutManager.disconnect(this._monitors);
     this._sleep();
     Gio.bus_unown_name(this._owner);
     this._dbus.unexport();
@@ -97,6 +116,23 @@ export default class LydiaHelper extends Extension {
   SetPanel(hidden) {
     this._wantHidden = hidden;
     this._applyPanel();
+  }
+
+  /** With the panel hidden, keep this strip at the top free (windows maximize below it): Lydia's bar lives there. */
+  Reserve(height) {
+    this._reserve = Math.min(height, 80);
+    this._setSpacer(this._panelHidden ? this._reserve : 0);
+  }
+
+  /** The Super key opens Lydia (a Super signal) instead of the overview, while she keeps calling Watch. */
+  SetSuper(mine) {
+    this._wantSuper = mine;
+    this._applySuper();
+  }
+
+  /** Lydia's "workspaces" button. */
+  Overview() {
+    Main.overview.toggle();
   }
 
   ActiveWindow() {
@@ -142,6 +178,7 @@ export default class LydiaHelper extends Extension {
     if (Date.now() > this._until) {
       this._sleep();
       this._applyPanel(); // Lydia is gone: the panel comes back
+      this._applySuper(); // ...and Super opens the overview again
       return GLib.SOURCE_REMOVE;
     }
     const [x, y] = global.get_pointer();
@@ -171,6 +208,40 @@ export default class LydiaHelper extends Extension {
       return;
     }
     box.visible = !hide || Main.overview.visible;
+    this._setSpacer(hide ? this._reserve : 0);
+  }
+
+  /** An invisible chrome actor that only reserves space (no drawing, no input). */
+  _setSpacer(height, again = false) {
+    if (this._spacer && this._spacer.height === height && !again) return;
+    if (this._spacer) {
+      Main.layoutManager.removeChrome(this._spacer);
+      this._spacer.destroy();
+      this._spacer = null;
+    }
+    const m = Main.layoutManager.primaryMonitor;
+    if (!height || !m) return;
+    this._spacer = new St.Widget({ x: m.x, y: m.y, width: m.width, height, reactive: false });
+    Main.layoutManager.addChrome(this._spacer, { affectsStruts: true, affectsInputRegion: false, trackFullscreen: true });
+  }
+
+  _applySuper() {
+    const mine = this._wantSuper && Date.now() <= this._until;
+    if (mine === !!this._superId) return;
+    const d = global.display;
+    try {
+      if (mine) {
+        // the shell's own handler (the overview) is held back while ours answers
+        GObject.signal_handlers_block_matched(d, { signalId: 'overlay-key' });
+        this._superId = d.connect('overlay-key', () => this._dbus?.emit_signal('Super', null));
+      } else {
+        d.disconnect(this._superId);
+        this._superId = 0;
+        GObject.signal_handlers_unblock_matched(d, { signalId: 'overlay-key' });
+      }
+    } catch (e) {
+      logError(e, 'Lydia helper: Super key');
+    }
   }
 
   _self() {
