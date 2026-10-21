@@ -80,11 +80,28 @@ async function enabledExtensions() {
   return (out?.match(/'([^']+)'/g) ?? []).map((s) => s.slice(1, -1));
 }
 
-/** missing | installed (needs enabling) | enabled (works after the next login) | active */
+const extVersion = (dir) => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(dir, 'metadata.json'), 'utf8')).version ?? 0;
+  } catch {
+    return 0;
+  }
+};
+
+/** The major GNOME Shell version (46), or 0 if it can't be told. */
+async function shellVersion() {
+  return Number(/(\d+)\./.exec((await run('gnome-shell', ['--version'])) ?? '')?.[1] ?? 0);
+}
+
+/** missing | old (GNOME before 45) | outdated (a newer one comes with Lydia) | installed (needs enabling) | enabled (works after the next login) | active */
 async function extensionStatus(backend) {
   if (!isGnome()) return { gnome: false, state: 'unsupported' };
+  const installed = extVersion(EXT_DIR);
+  if (installed && installed < extVersion(EXT_SRC)) return { gnome: true, state: 'outdated' };
   if (backend === 'gnome') return { gnome: true, state: 'active' };
-  if (!fs.existsSync(path.join(EXT_DIR, 'metadata.json'))) return { gnome: true, state: 'missing' };
+  const shell = await shellVersion();
+  if (shell && shell < 45) return { gnome: true, state: 'old' }; // the extension is written for GNOME 45+
+  if (!installed) return { gnome: true, state: 'missing' };
   return { gnome: true, state: (await enabledExtensions()).includes(EXT_UUID) ? 'enabled' : 'installed' };
 }
 
@@ -109,8 +126,8 @@ function setAutostart(on, app) {
     fs.rmSync(AUTOSTART, { force: true });
     return { ok: true };
   }
-  // Packaged: the app itself. From the source folder: its Electron with this folder.
-  const exec = app.isPackaged ? `"${process.execPath}"` : `"${process.execPath}" "${app.getAppPath()}"`;
+  // An AppImage: the file itself (it's mounted somewhere new each time). Packaged: the app. From the source folder: its Electron with this folder.
+  const exec = process.env.APPIMAGE ? `"${process.env.APPIMAGE}"` : app.isPackaged ? `"${process.execPath}"` : `"${process.execPath}" "${app.getAppPath()}"`;
   fs.mkdirSync(path.dirname(AUTOSTART), { recursive: true });
   fs.writeFileSync(
     AUTOSTART,

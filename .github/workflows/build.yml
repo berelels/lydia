@@ -1,0 +1,32 @@
+name: build
+
+# Tests, then the .deb, .rpm and AppImage for x64 and arm64, kept as the
+# run's artifacts. Nothing is published: a release is made by hand.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: sudo apt-get update && sudo apt-get install -y rpm
+      - run: npm ci
+      - run: npm test
+      - run: npx electron-builder --linux deb rpm --x64 --arm64
+      - run: npx electron-builder --linux AppImage --x64 --arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lydia-linux
+          path: |
+            dist/*.deb
+            dist/*.rpm
+            dist/*.AppImage
+          if-no-files-found: error

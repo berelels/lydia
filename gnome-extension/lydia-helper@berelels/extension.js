@@ -69,6 +69,9 @@ const VERSION = 4;
 const KEEPALIVE_MS = 15000; // Lydia calls Watch every 5 s; silent this long, she is gone
 const POINTER_MS = 50;
 const WINDOWS_MS = 700; // moves and resizes have no cheap global signal
+// GNOME 49 replaced get_maximized() with is_maximized()
+const maximized = (w) => (w.is_maximized ? w.is_maximized() : w.get_maximized() === Meta.MaximizeFlags.BOTH);
+
 const COVERING = [Meta.WindowType.NORMAL, Meta.WindowType.DIALOG, Meta.WindowType.MODAL_DIALOG, Meta.WindowType.UTILITY];
 
 export default class LydiaHelper extends Extension {
@@ -302,7 +305,7 @@ export default class LydiaHelper extends Extension {
       for (const actor of global.get_window_actors()) {
         const w = actor.get_meta_window();
         if (!w || w.get_monitor() !== primary || w.is_fullscreen() || w.minimized) continue;
-        if (w.get_window_type() !== Meta.WindowType.NORMAL || w.get_maximized() === Meta.MaximizeFlags.BOTH) continue;
+        if (w.get_window_type() !== Meta.WindowType.NORMAL || maximized(w)) continue;
         const r = w.get_frame_rect();
         if (!near(r.y, before.y)) continue;
         const bottom = near(r.y + r.height, before.y + before.height) ? after.y + after.height : r.y + r.height;

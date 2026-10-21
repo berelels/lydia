@@ -3,10 +3,11 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { unpacked } = require('../paths');
+const audio = require('../audio');
 
 /**
  * Hearing and speaking, all on this computer.
- * - listen(): records from the default microphone (pw-record, 16 kHz mono)
+ * - listen(): records from the default microphone (16 kHz mono)
  *   until you stop talking; the audio never touches the disk except one
  *   temporary WAV in the RAM-backed runtime dir, deleted right after.
  * - transcribe(): whisper.cpp, if installed in ~/.local/share/lydia/voice.
@@ -45,7 +46,7 @@ function listen({ onLevel = () => {}, max = 15_000, quietMs = 1100, waitMs = 600
   let stop = () => {};
   let peak = 0; // 0 all along: the microphone sends nothing at all (off, unplugged)
   const done = new Promise((resolve) => {
-    const rec = spawn('pw-record', ['--rate', String(RATE), '--channels', '1', '--format', 's16', '-'], { stdio: ['ignore', 'pipe', 'ignore'] });
+    const rec = audio.record(RATE);
     const chunks = [];
     let bytes = 0;
     let spoke = false;
@@ -192,7 +193,7 @@ let playing = null;
 let generation = 0; // bumped by shutUp(): pending sentences are dropped
 const play = (wav) =>
   new Promise((resolve) => {
-    playing = spawn('pw-play', [wav], { stdio: 'ignore' });
+    playing = audio.playFile(wav);
     playing.on('error', resolve);
     playing.on('exit', () => {
       playing = null;
@@ -201,9 +202,9 @@ const play = (wav) =>
     });
   });
 
-/** Raw PCM pieces into pw-play as they arrive. */
+/** Raw PCM pieces into the speakers as they arrive. */
 async function playStream({ rate, chunks, stop }, mine) {
-  const p = spawn('pw-play', ['--rate', String(rate), '--channels', '1', '--format', 's16', '-'], { stdio: ['pipe', 'ignore', 'ignore'] });
+  const p = audio.playRaw(rate);
   playing = p;
   const ended = new Promise((resolve) => p.on('exit', resolve).on('error', resolve));
   p.stdin.on('error', () => {});
@@ -272,10 +273,9 @@ function stopVoice() {
 
 // ---------- the microphone ----------
 
-const wpctl = (args) => new Promise((r) => execFile('wpctl', args, { timeout: 3000 }, (err, out) => r(err ? '' : String(out))));
 /** Is the default microphone muted? (then it records silence) */
-const micMuted = async () => /MUTED/.test(await wpctl(['get-volume', '@DEFAULT_AUDIO_SOURCE@']));
+const micMuted = async () => !!(await audio.level('source'))?.muted;
 /** Only when the user asks for it (the "turn on the microphone" button). */
-const unmuteMic = () => wpctl(['set-mute', '@DEFAULT_AUDIO_SOURCE@', '0']);
+const unmuteMic = () => audio.setMute('source', false);
 
 module.exports = { listen, transcribe, speak, shutUp, stopVoice, warmUp, micMuted, unmuteMic, setCloud, can, paths, HOME };

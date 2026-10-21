@@ -1115,7 +1115,7 @@ const WS = {
       ),
     ),
   'sys.overview': () => (setExpanded(false), desktop.overview()),
-  'sys.settings': () => (setExpanded(false), files.launch('org.gnome.Settings') || files.launch('gnome-control-center')),
+  'sys.settings': () => (setExpanded(false), files.settings()),
 };
 ipcMain.handle('ws', async (_e, action, args) => {
   const fn = WS[action];

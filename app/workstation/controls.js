@@ -1,4 +1,5 @@
 const { execFile, spawn } = require('child_process');
+const audio = require('../audio');
 
 /**
  * The Controls tab: network, Bluetooth, sound output and input, volumes, brightness,
@@ -50,9 +51,8 @@ async function sound() {
     .slice(1)
     .map((b) => ({ name: /Name:\s*(\S+)/.exec(b)?.[1], label: /Description:\s*(.+)/.exec(b)?.[1]?.trim() }))
     .filter((s) => s.name && !/snd_aloop|Loopback/i.test(s.name + s.label)); // the loopback device is not a speaker
-  const vol = await run('wpctl', ['get-volume', '@DEFAULT_AUDIO_SINK@']);
-  const m = /Volume:\s+([\d.]+)/.exec(vol ?? '');
-  return { sinks, current: def, volume: m ? Math.round(Number(m[1]) * 100) : null, muted: /MUTED/.test(vol ?? '') };
+  const l = await audio.level('sink');
+  return { sinks, current: def, volume: l?.volume ?? null, muted: !!l?.muted };
 }
 
 /** Microphones (not the "monitor" of each output), which one is in use, its level. */
@@ -66,9 +66,8 @@ async function mic() {
     .map((b) => ({ name: /Name:\s*(\S+)/.exec(b)?.[1], label: /Description:\s*(.+)/.exec(b)?.[1]?.trim() }))
     .filter((s) => s.name && !s.name.endsWith('.monitor') && !/snd_aloop|Loopback/i.test(s.name + s.label));
   if (!sources.length) return null;
-  const vol = await run('wpctl', ['get-volume', '@DEFAULT_AUDIO_SOURCE@']);
-  const m = /Volume:\s+([\d.]+)/.exec(vol ?? '');
-  return { sources, current: def, volume: m ? Math.round(Number(m[1]) * 100) : null, muted: /MUTED/.test(vol ?? '') };
+  const l = await audio.level('source');
+  return { sources, current: def, volume: l?.volume ?? null, muted: !!l?.muted };
 }
 
 async function brightness() {
@@ -114,19 +113,19 @@ async function set({ what, value }) {
       if (typeof value === 'string' && /^[\w.:-]+$/.test(value)) await run('pactl', ['set-default-sink', value]);
       break;
     case 'volume':
-      await run('wpctl', ['set-volume', '@DEFAULT_AUDIO_SINK@', `${Math.max(0, Math.min(100, Math.round(Number(value))))}%`]);
+      await audio.setLevel('sink', value);
       break;
     case 'mute':
-      await run('wpctl', ['set-mute', '@DEFAULT_AUDIO_SINK@', value ? '1' : '0']);
+      await audio.setMute('sink', !!value);
       break;
     case 'source':
       if (typeof value === 'string' && /^[\w.:-]+$/.test(value)) await run('pactl', ['set-default-source', value]);
       break;
     case 'micVolume':
-      await run('wpctl', ['set-volume', '@DEFAULT_AUDIO_SOURCE@', `${Math.max(0, Math.min(100, Math.round(Number(value))))}%`]);
+      await audio.setLevel('source', value);
       break;
     case 'micMute':
-      await run('wpctl', ['set-mute', '@DEFAULT_AUDIO_SOURCE@', value ? '1' : '0']);
+      await audio.setMute('source', !!value);
       break;
     case 'brightness':
       await run('gdbus', ['call', '--session', '--dest', 'org.gnome.SettingsDaemon.Power', '--object-path', '/org/gnome/SettingsDaemon/Power', '--method', 'org.freedesktop.DBus.Properties.Set', 'org.gnome.SettingsDaemon.Power.Screen', 'Brightness', `<int32 ${Math.max(1, Math.min(100, Math.round(Number(value))))}>`]);

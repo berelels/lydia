@@ -6,7 +6,8 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test test/*.test.js",
-    "dist": "electron-builder --linux deb"
+    "dist": "electron-builder --linux deb -c.electronDist=node_modules/electron/dist",
+    "dist:all": "electron-builder --linux deb rpm --x64 --arm64 && electron-builder --linux AppImage --x64 --arm64"
   },
   "author": {
     "name": "Gabriel Dias",
@@ -22,7 +23,6 @@
   "build": {
     "appId": "io.github.berelels.lydia",
     "productName": "Lydia",
-    "electronDist": "node_modules/electron/dist",
     "files": [
       "app/**/*",
       "gnome-extension/**/*",
@@ -86,6 +86,24 @@
         "build-essential"
       ],
       "priority": "optional"
+    },
+    "afterPack": "build/after-pack.js",
+    "rpm": {
+      "depends": [
+        "gtk3",
+        "libnotify",
+        "nss",
+        "libXScrnSaver",
+        "libXtst",
+        "xdg-utils",
+        "at-spi2-core",
+        "libuuid",
+        "libsecret",
+        "python3",
+        "python3-gobject",
+        "pulseaudio-utils",
+        "fontconfig"
+      ]
     }
   },
   "desktopName": "lydia.desktop"

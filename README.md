@@ -40,21 +40,26 @@ Everything you reach for is one move of the mouse (or the Super key) away.</p>
 
 Languages: English, Portuguese (Brazil) and Spanish.
 
-## Installing (Ubuntu 24.04 and newer)
+## Installing
 
-Build the package and install it (it pulls in what it needs):
+Each push to `main` builds the packages on GitHub Actions (the run's **lydia-linux** artifact), for x64 and arm64:
+
+| Package | For |
+| --- | --- |
+| `lydia_<version>_amd64.deb` / `_arm64.deb` | Ubuntu 22.04+, Debian 12+, Mint 21+, Pop!_OS, Zorin, elementary |
+| `lydia-<version>.x86_64.rpm` / `.aarch64.rpm` | Fedora, openSUSE |
+| `Lydia-<version>.AppImage` / `-arm64.AppImage` | Any other distro (Arch, Manjaro...) |
 
 ```bash
-npm install
-npm run dist
-sudo apt install ./dist/lydia_1.0.0_amd64.deb
+sudo apt install ./lydia_1.0.0_amd64.deb
 ```
 
+Or build the `.deb` here (`npm run dist`), or all of them (`npm run dist:all`, needs `rpm` for the `.rpm`).
 Then open **Lydia** from the apps menu; the setup wizard can make her start on login.
 
 ## Running from the source
 
-Requirements: Linux, Node.js 20+, Python 3 with GTK bindings (`python3-gi`), PipeWire (`wpctl`, `pw-record`) and the usual desktop tools (`pactl`, `nmcli`, `bluetoothctl`, `gdbus`, `gsettings`). On X11 she also uses `xprop` and `xdotool`. The `claude` command, Ollama and a Gemini key are optional (one of them is enough for the chat; the Gemini key also gives her the natural voice).
+Requirements: Linux, Node.js 20+, Python 3 with GTK bindings (`python3-gi`), PipeWire (`wpctl`, `pw-record`, `pw-play`) or PulseAudio (`pactl`, `parec`, `pacat`, `paplay`), and the usual desktop tools (`nmcli`, `bluetoothctl`, `gdbus`, `gsettings`). On X11 she also uses `xprop` and `xdotool`. The `claude` command, Ollama and a Gemini key are optional (one of them is enough for the chat; the Gemini key also gives her the natural voice).
 
 ```bash
 npm install
@@ -71,10 +76,10 @@ npm test
 
 | Desktop | Status |
 | --- | --- |
-| GNOME 45+ (X11 or Wayland) with the Lydia helper extension (`gnome-extension/`) | Everything, including hiding the top bar, the Super key and notifications |
-| GNOME on X11 without the extension | Works, without those three |
-| Other X11 desktops | The island and most tabs work; switches that use GNOME settings (dark mode, night light, do not disturb, wallpaper) don't |
-| KDE Plasma on Wayland, others | Not yet: she runs, but can't see the pointer or fullscreen windows |
+| GNOME 45 to 51 (X11 or Wayland) with the Lydia helper extension (`gnome-extension/`) | Everything, including hiding the top bar, the Super key and notifications |
+| GNOME on X11 without the extension (or GNOME 42–44, like Ubuntu 22.04, in an X11 session) | Works, without those three |
+| Cinnamon, MATE, XFCE, KDE Plasma on X11 | The island and most tabs, the wallpaper, logging out and the system settings; GNOME-only switches (night light, do not disturb) are hidden |
+| KDE Plasma on Wayland, GNOME 42–44 on Wayland, others | She runs, but can't see the pointer or fullscreen windows |
 
 Tested on Zorin OS 18 (GNOME 46, X11), from the source and as the built package.
 

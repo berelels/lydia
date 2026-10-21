@@ -801,6 +801,8 @@ const SETUP_VIEWS = {
       unsupported: `<span class="warn">${t('setup.ext_other')}</span>`,
       active: ok(t('setup.ext_active')),
       enabled: ok(t('setup.ext_enabled')),
+      old: `<span class="warn">${t('setup.ext_old')}</span>`,
+      outdated: btn('ext-install', t('setup.ext_update')),
     }[e.state] ?? btn('ext-install', t('setup.ext_install'));
     return `
       <p class="s-title">${t('setup.desktop')}</p>

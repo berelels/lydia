@@ -5,6 +5,7 @@ const path = require('path');
 const i18n = require('../i18n');
 const { t } = i18n;
 const { normalize } = require('./intents');
+const audio = require('../audio');
 
 /**
  * What Lydia can do on the computer. Each tool: a description and JSON schema
@@ -22,18 +23,16 @@ const detach = (cmd, args) => {
   p.unref();
 };
 
-// ---------- volume (PipeWire) ----------
+// ---------- volume ----------
 
-const SINK = '@DEFAULT_AUDIO_SINK@';
 async function volume() {
-  const out = await run('wpctl', ['get-volume', SINK]); // "Volume: 0.45 [MUTED]"
-  const m = /Volume:\s+([\d.]+)/.exec(out ?? '');
-  return m ? { level: Math.round(Number(m[1]) * 100), muted: /MUTED/.test(out) } : null;
+  const l = await audio.level('sink');
+  return l ? { level: l.volume, muted: l.muted } : null;
 }
 async function setVolume(level) {
   const v = Math.max(0, Math.min(100, Math.round(level)));
-  await run('wpctl', ['set-mute', SINK, '0']);
-  const ok = (await run('wpctl', ['set-volume', SINK, `${v}%`])) !== null;
+  await audio.setMute('sink', false);
+  const ok = await audio.setLevel('sink', v);
   return ok ? { ok: true, say: t('do.volume', { n: v }), undo: null } : { ok: false, say: t('do.no_audio') };
 }
 
@@ -308,7 +307,7 @@ const TOOLS = {
     params: { on: { type: 'boolean', description: 'true to mute, false to unmute' } },
     required: ['on'],
     run: async ({ on }) => {
-      const ok = (await run('wpctl', ['set-mute', SINK, on ? '1' : '0'])) !== null;
+      const ok = await audio.setMute('sink', on);
       return ok ? { ok: true, say: t(on ? 'do.muted' : 'do.unmuted') } : { ok: false, say: t('do.no_audio') };
     },
   },
