@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:">
   <title>Lydia</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -19,6 +19,27 @@
         <div class="tabs">
           <button class="tab active" data-view="home" data-i18n-title="tab.home">
             <svg viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5h-5v5H5a1 1 0 0 1-1-1z"/></svg>
+          </button>
+          <button class="tab" data-view="controls" data-i18n-title="tab.controls">
+            <svg viewBox="0 0 24 24"><path class="stroke" d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle class="stroke" cx="16" cy="7" r="2"/><circle class="stroke" cx="10" cy="17" r="2"/></svg>
+          </button>
+          <button class="tab" data-view="today" data-i18n-title="tab.today">
+            <svg viewBox="0 0 24 24"><rect class="stroke" x="4" y="5.5" width="16" height="14" rx="2.5"/><path class="stroke" d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg>
+          </button>
+          <button class="tab" data-view="tasks" data-i18n-title="tab.stats">
+            <svg viewBox="0 0 24 24"><path class="stroke" d="M5 19V11M10 19V6M15 19v-5M20 19V9"/></svg>
+          </button>
+          <button class="tab" data-view="clip" data-i18n-title="tab.clip">
+            <svg viewBox="0 0 24 24"><rect class="stroke" x="5.5" y="5" width="13" height="15" rx="2"/><path class="stroke" d="M9 5V3.8h6V5M9 10h6M9 14h4"/></svg>
+          </button>
+          <button class="tab" data-view="apps" data-i18n-title="tab.apps">
+            <svg viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="6" height="6" rx="1.6"/><rect x="13.5" y="4.5" width="6" height="6" rx="1.6"/><rect x="4.5" y="13.5" width="6" height="6" rx="1.6"/><rect x="13.5" y="13.5" width="6" height="6" rx="1.6"/></svg>
+          </button>
+          <button class="tab" data-view="wall" data-i18n-title="tab.wall">
+            <svg viewBox="0 0 24 24"><rect class="stroke" x="3.5" y="5" width="17" height="14" rx="2.5"/><path class="stroke" d="M6 17l4.5-5 3 3 2-2L19 17"/><circle cx="15.5" cy="9" r="1.5"/></svg>
+          </button>
+          <button class="tab" data-view="power" data-i18n-title="tab.power">
+            <svg viewBox="0 0 24 24"><path class="stroke" d="M12 4v7M7.5 7a7 7 0 1 0 9 0"/></svg>
           </button>
           <button class="tab" data-view="chat" data-i18n-title="tab.chat">
             <svg viewBox="0 0 24 24"><path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-7l-4 3.5V16H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg>
@@ -112,13 +133,84 @@
         <div class="rail"></div>
         <div class="card content">
           <div class="content-head">
-            <button class="link small" id="tasks-back" data-i18n="tasks.back"></button>
             <b data-i18n="tasks.title"></b>
+            <span class="muted" id="sys-up"></span>
+            <button class="link small" id="sys-speed" data-i18n="sys.speed"></button>
             <div class="seg" id="tasks-sort">
               <button data-by="cpu" class="on">CPU</button><button data-by="ram" data-i18n="tasks.memory"></button>
             </div>
           </div>
           <div class="task-list" id="task-list"></div>
+        </div>
+      </div>
+
+      <div class="wide view-controls">
+        <div class="rail"></div>
+        <div class="card content">
+          <div class="ctl-grid" id="ctl-grid"></div>
+          <div class="ctl-sliders" id="ctl-sliders"></div>
+          <div class="player" id="player"></div>
+        </div>
+      </div>
+
+      <div class="wide view-today">
+        <div class="rail"></div>
+        <div class="card content">
+          <div class="week" id="week"></div>
+          <form class="task-form" id="task-form">
+            <input id="task-text" autocomplete="off" data-i18n-ph="today.add_ph">
+            <input id="task-time" type="time" data-i18n-title="today.time_tip">
+            <button type="submit" class="s-btn" data-i18n="today.add"></button>
+          </form>
+          <div class="todo" id="todo"></div>
+          <div class="timers" id="timers">
+            <span class="muted" data-i18n="today.timer"></span>
+            <button class="s-btn plain" data-min="5">5 min</button>
+            <button class="s-btn plain" data-min="15">15 min</button>
+            <button class="s-btn plain" data-min="25">25 min</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="wide view-clip">
+        <div class="rail"></div>
+        <div class="card content">
+          <div class="content-head">
+            <input class="search" id="clip-search" autocomplete="off" data-i18n-ph="clip.search">
+            <button class="link small" id="clip-pause"></button>
+            <button class="link small" id="clip-clear" data-i18n="clip.clear"></button>
+          </div>
+          <div class="clip-list" id="clip-list"></div>
+        </div>
+      </div>
+
+      <div class="wide view-apps">
+        <div class="rail"></div>
+        <div class="card content">
+          <div class="content-head"><input class="search" id="app-search" autocomplete="off" data-i18n-ph="apps.search"></div>
+          <div class="app-grid" id="app-grid"></div>
+        </div>
+      </div>
+
+      <div class="wide view-wall">
+        <div class="rail"></div>
+        <div class="card content">
+          <div class="content-head"><b id="wall-dir"></b><button class="link small" id="wall-pick" data-i18n="wall.pick"></button></div>
+          <div class="wall-strip" id="wall-strip"></div>
+        </div>
+      </div>
+
+      <div class="wide view-power">
+        <div class="rail"></div>
+        <div class="card content">
+          <div class="power-grid" id="power-grid">
+            <button data-p="lock"><svg viewBox="0 0 24 24"><rect class="stroke" x="5.5" y="10.5" width="13" height="9" rx="2"/><path class="stroke" d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg><span data-i18n="power.lock"></span></button>
+            <button data-p="suspend"><svg viewBox="0 0 24 24"><path class="stroke" d="M18 14.5A7 7 0 1 1 9.5 6a5.5 5.5 0 0 0 8.5 8.5z"/></svg><span data-i18n="power.suspend"></span></button>
+            <button data-p="logout"><svg viewBox="0 0 24 24"><path class="stroke" d="M14 5h4.5v14H14M10 8l-4 4 4 4M6 12h9"/></svg><span data-i18n="power.logout"></span></button>
+            <button data-p="restart"><svg viewBox="0 0 24 24"><path class="stroke" d="M19 12a7 7 0 1 1-2.1-5M19 4.5V8h-3.5"/></svg><span data-i18n="power.restart"></span></button>
+            <button data-p="shutdown"><svg viewBox="0 0 24 24"><path class="stroke" d="M12 4v7M7.5 7a7 7 0 1 0 9 0"/></svg><span data-i18n="power.shutdown"></span></button>
+          </div>
+          <div class="power-confirm" id="power-confirm" hidden></div>
         </div>
       </div>
 
@@ -320,5 +412,6 @@
   </div>
   <script src="../i18n.js"></script>
   <script src="island.js"></script>
+  <script src="workstation.js"></script>
 </body>
 </html>

@@ -152,7 +152,7 @@ function apps() {
       // The program it runs ("gnome-calculator", flatpak's --command=spotify), to find it among processes.
       const exec = get('Exec');
       const bin = /--command=(\S+)/.exec(exec)?.[1] ?? path.basename(exec.split(/\s+/)[0] ?? '');
-      seen.set(f, { id: f.replace(/\.desktop$/, ''), name, names, bin });
+      seen.set(f, { id: f.replace(/\.desktop$/, ''), name, names, bin, iconName: get('Icon') });
     }
   }
   appCache = [...seen.values()].filter(Boolean);

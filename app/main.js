@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, screen, safeStorage, shell, clipboard, nativeTheme, globalShortcut } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, screen, safeStorage, shell, clipboard, nativeTheme, globalShortcut, dialog } = require('electron');
 const { execFile, execFileSync, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -17,6 +17,11 @@ const brain = require('./assistant/brain');
 const { TOOLS, findApp } = require('./assistant/tools');
 const intents = require('./assistant/intents');
 const voiceInstall = require('./assistant/install');
+const controls = require('./workstation/controls');
+const nowplaying = require('./workstation/nowplaying');
+const today = require('./workstation/today');
+const clip = require('./workstation/clipboard');
+const files = require('./workstation/files');
 
 // Under Wayland, run through XWayland: a native Wayland window can't place
 // itself at the top of the screen or stay above the others. Chromium picks its
@@ -43,7 +48,7 @@ const GEOM = {
   glow: 24, // room for the shadow around the visible island
 };
 // Height of the open panel for each view (the renderer uses the same numbers).
-const VIEW_H = { home: 200, look: 290, tasks: 330, chat: 440, setup: 440 };
+const VIEW_H = { home: 200, look: 290, tasks: 330, chat: 440, setup: 440, controls: 330, today: 380, clip: 380, apps: 380, wall: 300, power: 230 };
 const HOVER_IN_MS = 90;
 const HOVER_IN_FULLSCREEN_MS = 350; // reaching for a video's controls shouldn't pop her open
 const HOVER_OUT_MS = 450;
@@ -378,9 +383,11 @@ function killApp(name) {
   return { ok: true, count: pids.length };
 }
 
+let lastOutside = null; // the window you were in before opening her (to paste back into)
 function setExpanded(on) {
   if (state.expanded === on) return;
   state.expanded = on;
+  if (on) desktop.activeWindow((id) => (lastOutside = id));
   if (!on) giveFocusBack();
   applyShape();
   pushState();
@@ -842,11 +849,7 @@ const LOCAL_TOOLS = {
     return r.ok ? { ok: true, say: t('do.closed', { name: label }) } : { ok: false, say: r.why };
   },
   timer: ({ seconds }) => {
-    const s = Math.max(1, Math.min(24 * 3600, Math.round(Number(seconds))));
-    setTimeout(() => {
-      notify('alert', t('do.timer_done'), [], 12);
-      voice.speak(t('do.timer_done'), lang());
-    }, s * 1000);
+    const s = startTimer(seconds);
     const human = s >= 3600 ? t('do.hours', { n: Math.round(s / 360) / 10 }) : s >= 60 ? t('do.minutes', { n: Math.round(s / 6) / 10 }) : t('do.seconds', { n: s });
     return { ok: true, say: t('do.timer_set', { time: human.replace('.', i18n.lang() === 'en' ? '.' : ',') }) };
   },
@@ -859,6 +862,21 @@ const LOCAL_TOOLS = {
   },
 };
 
+// One timer at a time (from the voice or the Today tab); a new one replaces it.
+let timerEnd = 0;
+let timerHandle = 0;
+function startTimer(seconds) {
+  const s = Math.max(1, Math.min(24 * 3600, Math.round(Number(seconds))));
+  clearTimeout(timerHandle);
+  timerEnd = Date.now() + s * 1000;
+  timerHandle = setTimeout(() => {
+    timerEnd = 0;
+    notify('alert', t('do.timer_done'), [], 12);
+    voice.speak(t('do.timer_done'), lang());
+  }, s * 1000);
+  return s;
+}
+
 ipcMain.on('voice-toggle', () => toggleVoice());
 ipcMain.handle('voice-unmute', () => voice.unmuteMic()); // the user's own button
 let voiceInstalling = false;
@@ -870,6 +888,96 @@ ipcMain.handle('voice-install', async () => {
   voiceInstalling = false;
   return r;
 });
+
+// ---------- workstation tabs: one channel, ws(action, args) ----------
+
+const wallpaperDir = () => {
+  if (cfg.wallpaper_dir && fs.existsSync(cfg.wallpaper_dir)) return cfg.wallpaper_dir;
+  for (const d of ['Imagens/Wallpapers', 'Pictures/Wallpapers', 'Imagens', 'Pictures']) {
+    const full = path.join(os.homedir(), d);
+    if (fs.existsSync(full)) return full;
+  }
+  return os.homedir();
+};
+const POWER_CONFIRM = new Set(['restart', 'shutdown', 'logout']);
+
+const WS = {
+  'controls.get': () => controls.state(),
+  'controls.set': (a) => controls.set(a ?? {}),
+  'media.get': () => nowplaying.nowPlaying(),
+  'media.do': async ({ player, action } = {}) => (await nowplaying.control(player, action), new Promise((r) => setTimeout(r, 350)).then(nowplaying.nowPlaying)),
+  'tasks.get': () => today.list(),
+  'tasks.add': ({ text, due } = {}) => today.add(text, due),
+  'tasks.toggle': ({ id } = {}) => today.toggle(id),
+  'tasks.remove': ({ id } = {}) => today.remove(id),
+  'tasks.clearDone': () => today.clearDone(),
+  'stats.get': () => ({ uptime: files.uptime() }),
+  'timer.get': () => timerEnd,
+  'timer.start': ({ seconds } = {}) => (startTimer(seconds), timerEnd),
+  'timer.cancel': () => (clearTimeout(timerHandle), (timerEnd = 0)),
+  'stats.speed': () => files.speedTest(),
+  'clip.get': () => ({ items: clip.list(), paused: clip.isPaused() }),
+  'clip.use': ({ id, paste } = {}) => {
+    if (!clip.use(id)) return false;
+    if (paste) {
+      // back to the window you were in, then Ctrl+V there
+      setExpanded(false);
+      if (lastOutside) desktop.activate(lastOutside);
+      setTimeout(() => execFile('xdotool', ['key', '--clearmodifiers', 'ctrl+v'], () => {}), 250);
+    }
+    return true;
+  },
+  'clip.pin': ({ id } = {}) => (clip.pin(id), clip.list()),
+  'clip.remove': ({ id } = {}) => (clip.remove(id), clip.list()),
+  'clip.clear': () => (clip.clear(), clip.list()),
+  'clip.pause': ({ on } = {}) => (clip.setPaused(on), clip.isPaused()),
+  'apps.get': () => files.appList(cfg.favorite_apps),
+  'apps.launch': ({ id } = {}) => {
+    const ok = files.launch(id);
+    if (ok) setExpanded(false);
+    return ok;
+  },
+  'apps.favorite': ({ id } = {}) => {
+    const fav = new Set(cfg.favorite_apps);
+    fav.has(id) ? fav.delete(id) : fav.add(id);
+    cfg.favorite_apps = [...fav].slice(0, 12);
+    try {
+      config.save('favorite_apps', cfg.favorite_apps);
+    } catch {}
+    return files.appList(cfg.favorite_apps);
+  },
+  'wall.get': async () => ({ dir: wallpaperDir(), items: files.wallpapers(wallpaperDir()), current: await files.current() }),
+  'wall.set': ({ file } = {}) => files.setWallpaper(file),
+  'wall.pickDir': async () => {
+    const r = await dialog.showOpenDialog(win, { properties: ['openDirectory'], defaultPath: wallpaperDir() });
+    if (r.canceled) return null;
+    cfg.wallpaper_dir = r.filePaths[0];
+    try {
+      config.save('wallpaper_dir', cfg.wallpaper_dir);
+    } catch {}
+    return cfg.wallpaper_dir;
+  },
+  // restart / shut down / log out come back with { confirm } first; the page asks, then sends sure: true
+  'power.do': ({ action, sure } = {}) => (POWER_CONFIRM.has(action) && !sure ? { confirm: true } : files.power(action)),
+};
+ipcMain.handle('ws', async (_e, action, args) => {
+  const fn = WS[action];
+  if (!fn) return null;
+  try {
+    return await fn(args);
+  } catch (err) {
+    if (process.env.LYDIA_DEBUG) console.log(`[lydia] ws ${action}: ${err.message}`);
+    return null;
+  }
+});
+
+/** Tasks whose time came: say so. */
+function checkTasks() {
+  for (const task of today.due()) {
+    notify('alert', t('today.reminder', { text: task.text }), [], 15);
+    voice.speak(task.text, i18n.lang());
+  }
+}
 
 // ---------- setup wizard ----------
 
@@ -1127,6 +1235,8 @@ app.whenReady().then(() => {
   }
   if (process.env.LYDIA_DEBUG) console.log(`[lydia] voice shortcut: ${voiceKey ?? 'none free'}`);
   every(50, tick);
+  every(15_000, checkTasks);
+  clip.start(() => send('clip-changed'));
   let asking = false; // one MPRIS look at a time
   every(4000, async () => {
     if (asking) return;
@@ -1153,6 +1263,7 @@ app.on('before-quit', () => {
   stopOllama();
   desktop.stop();
   themeWatcher?.kill();
+  clip.stop();
   globalShortcut.unregisterAll();
   voice.stopVoice();
   listening?.stop();

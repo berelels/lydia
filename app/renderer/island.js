@@ -463,14 +463,13 @@ applyLook(DEFAULT);
 // ---------- views and input ----------
 
 // Same heights as VIEW_H in main.js (it shapes the clickable area from them).
-const VIEW_H = { home: 200, look: 290, tasks: 330, chat: 440, setup: 440 };
+const VIEW_H = { home: 200, look: 290, tasks: 330, chat: 440, setup: 440, controls: 330, today: 380, clip: 380, apps: 380, wall: 300, power: 230 };
 function setView(view, tell = true) {
   if (!(view in VIEW_H)) return;
   const was = island.dataset.view;
   island.dataset.view = view;
   document.documentElement.style.setProperty('--panel-h', `${VIEW_H[view]}px`);
-  const tab = { tasks: 'home' }[view] ?? view;
-  for (const el of document.querySelectorAll('.tab[data-view]')) el.classList.toggle('active', el.dataset.view === tab);
+  for (const el of document.querySelectorAll('.tab[data-view]')) el.classList.toggle('active', el.dataset.view === view);
   if (tell && view !== was) window.lydia.setView(view);
   if (view === 'tasks') startTasks();
   else stopTasks();
@@ -478,6 +477,7 @@ function setView(view, tell = true) {
   if (view === 'setup' && was !== 'setup') startSetup();
   if (view === 'chat') badges.chat = null;
   renderBadge();
+  window.dispatchEvent(new CustomEvent('lydia-view', { detail: { view, was } })); // the workstation tabs (workstation.js)
 }
 for (const tab of document.querySelectorAll('.tab[data-view]')) tab.addEventListener('click', () => setView(tab.dataset.view));
 window.addEventListener('keydown', (e) => {
@@ -513,6 +513,7 @@ function translatePage() {
   if (island.dataset.view === 'tasks') loadTasks();
   refreshProvider().then(() => !messages.querySelector('.msg') && hello());
   if (island.dataset.view === 'setup') renderSetup();
+  window.dispatchEvent(new CustomEvent('lydia-view', { detail: { view: island.dataset.view, was: island.dataset.view } }));
 }
 
 // ---------- notifications: a reply came while you were looking elsewhere ----------
@@ -590,7 +591,6 @@ for (const b of document.querySelectorAll('#tasks-sort button')) {
   });
 }
 $('open-tasks').addEventListener('click', () => setView('tasks'));
-$('tasks-back').addEventListener('click', () => setView('home'));
 
 // ---------- music ----------
 
