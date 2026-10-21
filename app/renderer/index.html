@@ -53,7 +53,6 @@
             <button class="tab" data-view="wall" data-i18n-title="tab.wall"><svg viewBox="0 0 24 24"><rect class="stroke" x="3.5" y="5" width="17" height="14" rx="2.5"/><path class="stroke" d="M6 17l4.5-5 3 3 2-2L19 17"/><circle cx="15.5" cy="9" r="1.5"/></svg></button>
             <button class="tab" data-view="power" data-i18n-title="tab.power"><svg viewBox="0 0 24 24"><path class="stroke" d="M12 4v7M7.5 7a7 7 0 1 0 9 0"/></svg></button>
             <button class="tab" data-view="chat" data-i18n-title="tab.chat"><svg viewBox="0 0 24 24"><path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-7l-4 3.5V16H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
-            <button class="tab" data-view="look" data-i18n-title="tab.look"><svg viewBox="0 0 24 24"><path d="M12 4a8 8 0 1 0 0 16c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1.1 0-.9.7-1.6 1.6-1.6H16a4 4 0 0 0 4-4C20 7 16.4 4 12 4zm-4.5 8a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm2.5-3.4a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm4 0a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm2.5 3.4a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6z"/></svg></button>
           </div>
         </div>
         <div class="tools left">
@@ -72,7 +71,7 @@
           <button id="btn-overview" class="tool" data-i18n-title="tool.overview">
             <svg viewBox="0 0 24 24"><rect class="stroke" x="3.5" y="5.5" width="7" height="6" rx="1.5"/><rect class="stroke" x="13.5" y="5.5" width="7" height="6" rx="1.5"/><rect class="stroke" x="3.5" y="14.5" width="7" height="4.5" rx="1.5"/><rect class="stroke" x="13.5" y="14.5" width="7" height="4.5" rx="1.5"/></svg>
           </button>
-          <button id="btn-settings" class="tool" data-i18n-title="tool.settings">
+          <button id="btn-settings" class="tool" data-view="look" data-i18n-title="tool.settings">
             <svg viewBox="0 0 24 24"><circle class="stroke" cx="12" cy="12" r="3"/><path class="stroke" d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M6 18l1.6-1.6M16.4 7.6 18 6"/></svg>
           </button>
         </div>
@@ -113,7 +112,10 @@
               <span data-i18n="look.city"></span>
               <input class="pick" id="weather-city" autocomplete="off" data-i18n-ph="look.city_ph">
             </div>
-            <button class="link" id="look-reset" data-i18n="look.reset"></button>
+            <div class="look-links">
+              <button class="s-btn plain" id="open-system-settings" data-i18n="look.system_settings"></button>
+              <button class="link" id="look-reset" data-i18n="look.reset"></button>
+            </div>
           </div>
         </div>
         <div class="card side">
