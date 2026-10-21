@@ -196,6 +196,15 @@ window.lydia.on('layout', (l) => {
 window.lydia.on('prefs', (p) => {
   $('language').value = p.language;
   island.dataset.bar = p.bar_content;
+  // the font for everything ('' = Lydia's own) and how heavy ordinary text is
+  const css = document.documentElement.style;
+  if (p.font_family) css.setProperty('--font', `"${p.font_family}", Inter, sans-serif`);
+  else css.removeProperty('--font');
+  css.setProperty('--weight', p.font_weight ?? 400);
+  fontNow = p.font_family ?? '';
+  if ($('font-family').options.length) $('font-family').value = fontNow;
+  for (const b of document.querySelectorAll('#font-weight button')) b.classList.toggle('on', Number(b.dataset.w) === p.font_weight);
+  if (document.activeElement !== $('weather-city')) $('weather-city').value = p.weather_city ?? '';
   for (const b of document.querySelectorAll('#bar-content button')) b.classList.toggle('on', b.dataset.v === p.bar_content);
   document.querySelector('.switch[data-pref="super_opens"]').hidden = !p.panelOk;
   $('super-tab-row').hidden = !p.panelOk || !p.super_opens;
@@ -312,7 +321,7 @@ applyAccent(DEFAULT_ACCENT);
 // ---------- views and input ----------
 
 // Same heights as VIEW_H in main.js (it shapes the clickable area from them).
-const VIEW_H = { notif: 400, home: 170, look: 450, tasks: 330, chat: 440, setup: 440, controls: 320, today: 300, clip: 380, apps: 380, wall: 270, power: 170 };
+const VIEW_H = { notif: 400, home: 170, look: 460, tasks: 330, chat: 440, setup: 440, controls: 320, today: 390, clip: 380, apps: 380, wall: 270, power: 170 };
 const VIEW_W = { notif: 560, home: 660, look: 720, tasks: 780, chat: 780, setup: 720, controls: 680, today: 780, clip: 660, apps: 700, wall: 780, power: 660 };
 let lastTab = 'controls'; // opening again (with nothing to tell) goes back to it
 function setView(view, tell = true) {
@@ -345,6 +354,11 @@ for (const b of document.querySelectorAll('#default-provider button')) {
 for (const b of document.querySelectorAll('#bar-content button')) {
   b.addEventListener('click', () => window.lydia.setPref('bar_content', b.dataset.v));
 }
+let fontNow = '';
+$('font-family').addEventListener('change', (e) => window.lydia.setPref('font_family', e.target.value));
+for (const b of document.querySelectorAll('#font-weight button')) b.addEventListener('click', () => window.lydia.setPref('font_weight', Number(b.dataset.w)));
+$('weather-city').addEventListener('change', (e) => window.lydia.setPref('weather_city', e.target.value.trim()));
+$('weather-city').addEventListener('keydown', (e) => e.key === 'Enter' && e.target.blur());
 $('super-tab').addEventListener('change', (e) => window.lydia.setPref('super_tab', e.target.value));
 $('btn-notif').addEventListener('click', () => setView(island.dataset.view === 'notif' ? lastTab : 'notif'));
 $('btn-overview').addEventListener('click', () => window.lydia.ws('sys.overview'));

@@ -16,6 +16,13 @@ const SVG = {
   muted: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="stroke" d="M16 9.5l5 5M21 9.5l-5 5"/>',
   mic: '<path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path class="stroke" d="M6.5 11.5a5.5 5.5 0 0 0 11 0M12 17v3.5"/>',
   micOff: '<path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path class="stroke" d="M6.5 11.5a5.5 5.5 0 0 0 11 0M12 17v3.5M4 4l16 16"/>',
+  chevron: '<path class="stroke" d="M9.5 6l6 6-6 6"/>',
+  back: '<path class="stroke" d="M14.5 6l-6 6 6 6"/>',
+  lock: '<rect x="6.5" y="11" width="11" height="8.5" rx="2"/><path class="stroke" d="M9 11V8.5a3 3 0 0 1 6 0V11"/>',
+  headset: '<path class="stroke" d="M5 15v-3a7 7 0 0 1 14 0v3"/><rect x="4" y="14" width="4" height="6" rx="1.5"/><rect x="16" y="14" width="4" height="6" rx="1.5"/>',
+  speaker: '<rect class="stroke" x="7" y="3.5" width="10" height="17" rx="2.5"/><circle class="stroke" cx="12" cy="14" r="3"/><circle cx="12" cy="7.5" r="1.2"/>',
+  phone: '<rect class="stroke" x="7.5" y="3" width="9" height="18" rx="2"/><path class="stroke" d="M11 18h2"/>',
+  device: '<rect class="stroke" x="4" y="6" width="16" height="11" rx="2"/><path class="stroke" d="M9 20h6"/>',
   sun: '<circle cx="12" cy="12" r="3.6"/><path class="stroke" d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M6 18l1.4-1.4M16.6 7.4 18 6"/>',
   prev: '<path d="M7 5.5h2v13H7zM19 5.5v13L10 12z"/>',
   next: '<path d="M15 5.5h2v13h-2zM5 5.5v13l9-6.5z"/>',
@@ -39,16 +46,18 @@ const clock = (secs) => {
 let ctl = null;
 let media = null;
 let sliding = false; // don't redraw a slider under the finger
-const tile = (what, ico, label, sub, on, can = true) =>
-  `<button class="ctl-tile ${on ? 'on' : ''}" data-what="${what}" ${can ? '' : 'disabled'}>${icon(ico)}<span><b>${esc(label)}</b><small>${esc(sub)}</small></span></button>`;
+const tile = (what, ico, label, sub, on, can = true, list = '') =>
+  `<button class="ctl-tile ${on ? 'on' : ''}" data-what="${what}" ${can ? '' : 'disabled'}>${icon(ico)}<span><b>${esc(label)}</b><small>${esc(sub)}</small></span>${
+    list ? `<i class="more" data-list="${list}" title="${esc(t('ctl.devices'))}">${icon('chevron')}</i>` : ''
+  }</button>`;
 
 function renderControls() {
   if (!ctl) return;
   const n = ctl.network;
   const tiles = [];
-  if (n?.wifi) tiles.push(tile('wifi', 'wifi', t('ctl.wifi'), n.wifi.ssid || t(n.wifi.on ? 'ctl.on' : 'ctl.off'), n.wifi.on));
+  if (n?.wifi) tiles.push(tile('wifi', 'wifi', t('ctl.wifi'), n.wifi.ssid || t(n.wifi.on ? 'ctl.on' : 'ctl.off'), n.wifi.on, true, 'wifi'));
   else if (n) tiles.push(tile('', 'wired', t(n.wired ? 'ctl.wired' : 'ctl.offline'), n.wired ?? '', !!n.wired, false));
-  if (ctl.bluetooth) tiles.push(tile('bluetooth', 'bluetooth', t('ctl.bluetooth'), ctl.bluetooth.connected[0] ?? t(ctl.bluetooth.on ? 'ctl.on' : 'ctl.off'), ctl.bluetooth.on));
+  if (ctl.bluetooth) tiles.push(tile('bluetooth', 'bluetooth', t('ctl.bluetooth'), ctl.bluetooth.connected[0] ?? t(ctl.bluetooth.on ? 'ctl.on' : 'ctl.off'), ctl.bluetooth.on, true, 'bt'));
   if (ctl.nightLight !== null) tiles.push(tile('nightLight', 'night', t('ctl.night'), t(ctl.nightLight ? 'ctl.on' : 'ctl.off'), ctl.nightLight));
   if (ctl.dnd !== null) tiles.push(tile('dnd', 'dnd', t('ctl.dnd'), t(ctl.dnd ? 'ctl.on' : 'ctl.off'), ctl.dnd));
   if (ctl.dark !== null) tiles.push(tile('dark', 'dark', t('ctl.dark'), t(ctl.dark ? 'ctl.on' : 'ctl.off'), ctl.dark));
@@ -162,6 +171,8 @@ async function loadControls() {
 }
 
 $('ctl-grid').addEventListener('click', async (e) => {
+  const more = e.target.closest('.more[data-list]');
+  if (more) return openList(more.dataset.list); // the arrow: the networks / devices, not the on/off
   const b = e.target.closest('.ctl-tile[data-what]');
   if (!b || !b.dataset.what) return;
   b.classList.toggle('on'); // answers at once; the real state follows
@@ -203,6 +214,94 @@ $('player').addEventListener('click', async (e) => {
   media = await ws('media.do', { player: media.player, action: b.dataset.act });
   playerAt = Date.now();
   renderPlayer();
+});
+
+// ---------- the networks / devices list (the arrow on Wi-Fi and Bluetooth) ----------
+
+let listKind = '';
+let listItems = null;
+let listBusy = false;
+const status = {}; // id -> 'connecting' | 'disconnecting' | 'failed' | 'password' | 'wrong'
+const bars = (signal) =>
+  `<svg viewBox="0 0 24 24" class="signal">${[0, 1, 2, 3].map((i) => `<rect x="${3 + i * 5}" y="${17 - i * 4}" width="3.4" height="${4 + i * 4}" rx="1" class="${signal > i * 25 ? 'lit' : ''}"/>`).join('')}</svg>`;
+const btIcon = (name) => (/headset|headphone/.test(name) ? 'headset' : /audio|speaker/.test(name) ? 'speaker' : /phone/.test(name) ? 'phone' : 'device');
+
+function renderList() {
+  const p = $('ctl-panel');
+  const wifi = listKind === 'wifi';
+  const head = `<div class="panel-head"><button class="tool" data-do="back">${icon('back')}</button><b>${esc(t(wifi ? 'ctl.wifi' : 'ctl.bluetooth'))}</b>
+    <button class="link small" data-do="scan" ${listBusy ? 'disabled' : ''}>${esc(t(listBusy ? 'ctl.searching' : wifi ? 'ctl.rescan' : 'ctl.scan'))}</button></div>`;
+  let rows = '';
+  if (listItems === null || !listItems.length) rows = `<div class="muted empty">${esc(t(listBusy ? 'ctl.searching' : 'ctl.none'))}</div>`;
+  else if (wifi) {
+    rows = listItems
+      .map((n) => {
+        const st = status[n.ssid];
+        const sub = st ? t(`ctl.${st}`) : n.inUse ? t('ctl.connected') : n.known ? t('ctl.saved') : '';
+        const ask = st === 'password' || st === 'wrong';
+        return `<div class="row ${n.inUse ? 'on' : ''}" data-id="${esc(n.ssid)}">${bars(n.signal)}<span class="name"><b>${esc(n.ssid)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</span>${n.secure ? icon('lock') : ''}
+          ${ask ? `<form class="pw"><input type="password" autocomplete="off" placeholder="${esc(t('ctl.password'))}"><button class="s-btn">${esc(t('ctl.connect'))}</button></form>` : ''}</div>`;
+      })
+      .join('');
+  } else {
+    rows = listItems
+      .map((d) => {
+        const st = status[d.mac];
+        const sub = st ? t(`ctl.${st}`) : t(d.connected ? 'ctl.connected' : d.paired ? 'ctl.paired' : 'ctl.new');
+        return `<div class="row ${d.connected ? 'on' : ''}" data-id="${esc(d.mac)}">${icon(btIcon(d.icon))}<span class="name"><b>${esc(d.name)}</b><small>${esc(sub)}</small></span></div>`;
+      })
+      .join('');
+  }
+  p.innerHTML = head + `<div class="rows">${rows}</div>`;
+  p.querySelector('.pw input')?.focus({ preventScroll: true });
+}
+async function loadList(search = false) {
+  listBusy = search || listItems === null;
+  renderList();
+  const r = await ws(listKind === 'wifi' ? 'wifi.list' : 'bt.list', listKind === 'wifi' ? { rescan: search } : { scan: search });
+  listBusy = false;
+  listItems = r;
+  renderList();
+}
+function openList(kind) {
+  listKind = kind;
+  listItems = null;
+  for (const k of Object.keys(status)) delete status[k];
+  $('ctl-panel').hidden = false;
+  loadList(false);
+}
+async function act(id, password) {
+  const wifi = listKind === 'wifi';
+  const item = (listItems ?? []).find((x) => (wifi ? x.ssid : x.mac) === id);
+  if (!item) return;
+  const on = wifi ? item.inUse : item.connected;
+  if (wifi && !on && item.secure && !item.known && !password) {
+    status[id] = 'password'; // asks for it right there in the row
+    return renderList();
+  }
+  status[id] = on ? 'disconnecting' : 'connecting';
+  renderList();
+  const r = on
+    ? await ws(wifi ? 'wifi.disconnect' : 'bt.disconnect', wifi ? { ssid: id } : { mac: id })
+    : await ws(wifi ? 'wifi.connect' : 'bt.connect', wifi ? { ssid: id, password } : { mac: id });
+  if (r?.ok) delete status[id];
+  else status[id] = r?.wrongPassword ? 'wrong' : 'failed';
+  await loadList(false);
+  loadControls(); // the tile says the new state
+}
+$('ctl-panel').addEventListener('click', (e) => {
+  const d = e.target.closest('[data-do]')?.dataset.do;
+  if (d === 'back') return ($('ctl-panel').hidden = true);
+  if (d === 'scan') return loadList(true);
+  if (e.target.closest('form')) return;
+  const row = e.target.closest('.row[data-id]');
+  if (row) act(row.dataset.id);
+});
+$('ctl-panel').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const row = e.target.closest('.row[data-id]');
+  const pw = e.target.querySelector('input').value;
+  if (row && pw) act(row.dataset.id, pw);
 });
 
 // ---------- Today ----------
@@ -665,12 +764,81 @@ $('music-volume').addEventListener('input', (e) => {
 });
 for (const id of ['music-cover', 'music-meta']) $(id).addEventListener('click', () => window.lydia.open('controls'));
 
+// ---------- the weather (Today's card, and next to the clock on the bar) ----------
+
+const RAIN = '<g class="wx-drops">' + [12, 28, 44, 70, 86, 102, 20, 58, 94].map((x, i) => `<path d="M${x} ${(i * 37) % 60} l-4 12"/>`).join('') + '</g>';
+const CLOUD = (x, y, s, cls = '') => `<path class="wx-cloud ${cls}" transform="translate(${x} ${y}) scale(${s})" d="M10 30a10 10 0 0 1 2-19.8A14 14 0 0 1 38 8a11 11 0 0 1 4 22z"/>`;
+const WX_ART = {
+  sun: `<g class="wx-sun"><g class="wx-rays">${Array.from({ length: 8 }, (_, i) => `<path transform="rotate(${i * 45} 72 46)" d="M72 14v10"/>`).join('')}</g><circle cx="72" cy="46" r="17"/></g>`,
+  moon: `<path class="wx-moon" d="M80 22a24 24 0 1 0 18 38a20 20 0 0 1-18-38z"/>${[[40, 30], [56, 18], [30, 58], [104, 26]].map(([x, y], i) => `<circle class="wx-star s${i}" cx="${x}" cy="${y}" r="1.8"/>`).join('')}`,
+  cloud: CLOUD(18, 22, 1.5, 'back') + CLOUD(50, 44, 1.35),
+  fog: [36, 52, 68, 84].map((y, i) => `<path class="wx-fog f${i}" d="M${10 + (i % 2) * 14} ${y}h${70 - (i % 2) * 10}"/>`).join(''),
+  snow: CLOUD(30, 10, 1.4) + '<g class="wx-flakes">' + [[30, 0], [52, 18], [74, 6], [96, 24], [42, 36], [86, 44]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.6"/>`).join('') + '</g>',
+  storm: RAIN + CLOUD(24, 8, 1.6) + '<path class="wx-bolt" d="M70 44l-12 22h10l-6 18 18-26h-11l7-14z"/>',
+  // rain: like a phone's weather card, someone under an orange umbrella
+  rain: `${RAIN}<g class="wx-person">
+    <path class="wx-leg" d="M48 104h7v12h-7zM60 104h7v12h-7z"/>
+    <path class="wx-coat" d="M43 72q14-10 28 0l5 34H38z"/>
+    <path class="wx-coat" d="M47 62q10-16 20 0v7q-10-5-20 0z"/>
+    <circle class="wx-face" cx="57" cy="62" r="6.5"/>
+    <path class="wx-shaft" d="M70 30l-6 58q0 6-6 6q-5 0-5-5"/>
+    <path class="wx-arm" d="M68 76q2 7-4 9"/>
+    <rect class="wx-bag" x="66" y="88" width="15" height="12" rx="3"/><path class="wx-shaft" d="M68 88q5-8 11 0"/>
+    <path class="wx-umbrella" d="M28 44q38-40 82-4q-8-4-14 3q-7-7-15 0q-6-7-15 0q-8-6-15 1q-12-6-23 0z"/>
+  </g>`,
+};
+let wx = null;
+const wxTime = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
+function renderWeather() {
+  $('bar-temp').textContent = wx ? `${wx.temp}°` : '';
+  if (!wx) return;
+  $('weather').dataset.kind = wx.kind;
+  if ($('wx-art').dataset.kind !== wx.kind) {
+    $('wx-art').dataset.kind = wx.kind;
+    $('wx-art').innerHTML = `<svg viewBox="0 0 120 120" aria-hidden="true">${WX_ART[wx.kind] ?? ''}</svg>`;
+  }
+  $('wx-temp').textContent = `${wx.temp}°`;
+  $('wx-cond').textContent = t(`weather.${wx.code}`) !== `weather.${wx.code}` ? t(`weather.${wx.code}`) : t(`weather.${wx.kind}`);
+  $('wx-city').textContent = wx.city;
+  $('wx-at').textContent = wxTime.format(wx.at);
+}
+async function loadWeather(force = false) {
+  $('weather').classList.toggle('busy', force);
+  const r = await ws('weather.get', { force });
+  $('weather').classList.remove('busy');
+  if (r) wx = r;
+  renderWeather();
+}
+$('wx-refresh').addEventListener('click', () => loadWeather(true));
+let wxCity = null; // a new city typed in Appearance: the weather is read again for it
+window.lydia.on('prefs', (p) => {
+  if (wxCity !== null && p.weather_city !== wxCity) loadWeather(true);
+  wxCity = p.weather_city ?? '';
+});
+loadWeather();
+setInterval(() => loadWeather(), 20 * 60_000);
+
+/** The clock in the middle of the bar (with the temperature beside it). */
+function renderTopClock() {
+  $('bar-time').textContent = new Intl.DateTimeFormat(i18n.htmlLang(), { hour: '2-digit', minute: '2-digit' }).format(new Date());
+}
+renderTopClock();
+setInterval(renderTopClock, 5000);
+
 // ---------- switching ----------
 
+/** The system's fonts, read once, when Appearance opens. */
+async function loadFonts() {
+  if ($('font-family').options.length) return;
+  const list = (await ws('fonts.list')) ?? [];
+  fillSelect($('font-family'), [{ id: '', label: t('font.default') }, ...list.map((f) => ({ id: f, label: f }))], fontNow);
+}
+
 const LOADERS = {
+  look: [loadFonts, 0],
+  today: [async () => (loadToday(), loadWeather()), 1000],
   notif: [async () => (notifDnd === null && (notifDnd = (await ws('controls.get'))?.dnd ?? null), loadNotifs()), 0],
   controls: [loadControls, 2500],
-  today: [loadToday, 1000],
   tasks: [loadSystem, 30_000],
   clip: [loadClip, 0],
   apps: [loadApps, 0],
@@ -688,6 +856,7 @@ window.addEventListener('lydia-view', (e) => {
   const { view, was } = e.detail;
   clearInterval(wsTimer);
   $('power-confirm').hidden = view !== 'power' ? true : $('power-confirm').hidden;
+  if (view !== 'controls') $('ctl-panel').hidden = true;
   const l = LOADERS[view];
   if (!l) return;
   const [load, every] = l;

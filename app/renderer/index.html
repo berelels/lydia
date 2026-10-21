@@ -41,15 +41,20 @@
     <div class="panel-view">
       <div class="topbar">
         <div class="tabs">
-          <button class="tab" data-view="controls" data-i18n-title="tab.controls"><svg viewBox="0 0 24 24"><path class="stroke" d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle class="stroke" cx="16" cy="7" r="2"/><circle class="stroke" cx="10" cy="17" r="2"/></svg></button>
-          <button class="tab" data-view="today" data-i18n-title="tab.today"><svg viewBox="0 0 24 24"><rect class="stroke" x="4" y="5.5" width="16" height="14" rx="2.5"/><path class="stroke" d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg></button>
-          <button class="tab" data-view="tasks" data-i18n-title="tab.stats"><svg viewBox="0 0 24 24"><path class="stroke" d="M5 19V11M10 19V6M15 19v-5M20 19V9"/></svg></button>
-          <button class="tab" data-view="clip" data-i18n-title="tab.clip"><svg viewBox="0 0 24 24"><rect class="stroke" x="5.5" y="5" width="13" height="15" rx="2"/><path class="stroke" d="M9 5V3.8h6V5M9 10h6M9 14h4"/></svg></button>
-          <button class="tab" data-view="apps" data-i18n-title="tab.apps"><svg viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="6" height="6" rx="1.6"/><rect x="13.5" y="4.5" width="6" height="6" rx="1.6"/><rect x="4.5" y="13.5" width="6" height="6" rx="1.6"/><rect x="13.5" y="13.5" width="6" height="6" rx="1.6"/></svg></button>
-          <button class="tab" data-view="wall" data-i18n-title="tab.wall"><svg viewBox="0 0 24 24"><rect class="stroke" x="3.5" y="5" width="17" height="14" rx="2.5"/><path class="stroke" d="M6 17l4.5-5 3 3 2-2L19 17"/><circle cx="15.5" cy="9" r="1.5"/></svg></button>
-          <button class="tab" data-view="power" data-i18n-title="tab.power"><svg viewBox="0 0 24 24"><path class="stroke" d="M12 4v7M7.5 7a7 7 0 1 0 9 0"/></svg></button>
-          <button class="tab" data-view="chat" data-i18n-title="tab.chat"><svg viewBox="0 0 24 24"><path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-7l-4 3.5V16H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
-          <button class="tab" data-view="look" data-i18n-title="tab.look"><svg viewBox="0 0 24 24"><path d="M12 4a8 8 0 1 0 0 16c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1.1 0-.9.7-1.6 1.6-1.6H16a4 4 0 0 0 4-4C20 7 16.4 4 12 4zm-4.5 8a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm2.5-3.4a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm4 0a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm2.5 3.4a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6z"/></svg></button>
+          <div class="tabs-side left">
+            <button class="tab" data-view="controls" data-i18n-title="tab.controls"><svg viewBox="0 0 24 24"><path class="stroke" d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle class="stroke" cx="16" cy="7" r="2"/><circle class="stroke" cx="10" cy="17" r="2"/></svg></button>
+            <button class="tab" data-view="today" data-i18n-title="tab.today"><svg viewBox="0 0 24 24"><rect class="stroke" x="4" y="5.5" width="16" height="14" rx="2.5"/><path class="stroke" d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg></button>
+            <button class="tab" data-view="tasks" data-i18n-title="tab.stats"><svg viewBox="0 0 24 24"><path class="stroke" d="M5 19V11M10 19V6M15 19v-5M20 19V9"/></svg></button>
+            <button class="tab" data-view="clip" data-i18n-title="tab.clip"><svg viewBox="0 0 24 24"><rect class="stroke" x="5.5" y="5" width="13" height="15" rx="2"/><path class="stroke" d="M9 5V3.8h6V5M9 10h6M9 14h4"/></svg></button>
+          </div>
+          <div class="bar-clock" id="bar-clock"><b id="bar-time"></b><span id="bar-temp"></span></div>
+          <div class="tabs-side right">
+            <button class="tab" data-view="apps" data-i18n-title="tab.apps"><svg viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="6" height="6" rx="1.6"/><rect x="13.5" y="4.5" width="6" height="6" rx="1.6"/><rect x="4.5" y="13.5" width="6" height="6" rx="1.6"/><rect x="13.5" y="13.5" width="6" height="6" rx="1.6"/></svg></button>
+            <button class="tab" data-view="wall" data-i18n-title="tab.wall"><svg viewBox="0 0 24 24"><rect class="stroke" x="3.5" y="5" width="17" height="14" rx="2.5"/><path class="stroke" d="M6 17l4.5-5 3 3 2-2L19 17"/><circle cx="15.5" cy="9" r="1.5"/></svg></button>
+            <button class="tab" data-view="power" data-i18n-title="tab.power"><svg viewBox="0 0 24 24"><path class="stroke" d="M12 4v7M7.5 7a7 7 0 1 0 9 0"/></svg></button>
+            <button class="tab" data-view="chat" data-i18n-title="tab.chat"><svg viewBox="0 0 24 24"><path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-7l-4 3.5V16H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+            <button class="tab" data-view="look" data-i18n-title="tab.look"><svg viewBox="0 0 24 24"><path d="M12 4a8 8 0 1 0 0 16c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1.1 0-.9.7-1.6 1.6-1.6H16a4 4 0 0 0 4-4C20 7 16.4 4 12 4zm-4.5 8a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm2.5-3.4a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm4 0a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm2.5 3.4a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6z"/></svg></button>
+          </div>
         </div>
         <div class="tools left">
           <button id="btn-mic" class="tool" data-i18n-title="voice.mic_tip">
@@ -97,6 +102,16 @@
             <div class="appearance-row">
               <span data-i18n="look.language"></span>
               <select class="pick" id="language"></select>
+            </div>
+            <div class="appearance-row">
+              <span data-i18n="look.font"></span>
+              <div class="font-row"><select class="pick" id="font-family"></select>
+                <div class="seg" id="font-weight"><button data-w="300" data-i18n="font.light"></button><button data-w="400" data-i18n="font.regular"></button><button data-w="500" data-i18n="font.medium"></button><button data-w="600" data-i18n="font.bold"></button></div>
+              </div>
+            </div>
+            <div class="appearance-row">
+              <span data-i18n="look.city"></span>
+              <input class="pick" id="weather-city" autocomplete="off" data-i18n-ph="look.city_ph">
             </div>
             <button class="link" id="look-reset" data-i18n="look.reset"></button>
           </div>
@@ -176,15 +191,27 @@
         <div class="card content">
           <div class="ctl-grid" id="ctl-grid"></div>
           <div class="ctl-sliders" id="ctl-sliders"></div>
+          <div class="ctl-panel" id="ctl-panel" hidden></div>
         </div>
         <div class="card player" id="player"></div>
       </div>
 
       <div class="wide view-today">
-        <div class="card clock-card">
-          <b id="clock-time"></b>
-          <span id="clock-day"></span>
-          <small id="clock-date"></small>
+        <div class="today-left">
+          <div class="card clock-card">
+            <b id="clock-time"></b>
+            <span id="clock-day"></span>
+            <small id="clock-date"></small>
+          </div>
+          <div class="card weather-card" id="weather">
+            <div class="wx-art" id="wx-art"></div>
+            <b class="wx-temp" id="wx-temp">--°</b>
+            <span class="wx-cond" id="wx-cond"></span>
+            <div class="wx-foot">
+              <span class="wx-city"><svg viewBox="0 0 24 24"><path d="M12 2.5a7 7 0 0 1 7 7c0 5-7 12-7 12s-7-7-7-12a7 7 0 0 1 7-7zm0 4.3a2.7 2.7 0 1 0 0 5.4 2.7 2.7 0 0 0 0-5.4z"/></svg><span id="wx-city"></span></span>
+              <button class="wx-refresh" id="wx-refresh" data-i18n-title="weather.refresh"><span id="wx-at"></span><svg viewBox="0 0 24 24"><path class="stroke" d="M19 12a7 7 0 1 1-2.1-5M19 4.5V8h-3.5"/></svg></button>
+            </div>
+          </div>
         </div>
         <div class="card content">
           <span class="label" data-i18n="today.week"></span>

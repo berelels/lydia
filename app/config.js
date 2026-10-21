@@ -31,6 +31,11 @@ const DEFAULTS = {
   bar_content: 'both',
   // Something playing (and the desktop below): the closed bar becomes a small player.
   music_card: true,
+  // The weather in Today and on the bar: this city ('' = roughly where the internet address says).
+  weather_city: '',
+  // The interface's font ('' = Lydia's own) and its weight for ordinary text.
+  font_family: '',
+  font_weight: 400,
   // Who answers in the chat: "claude" (the claude CLI and its login), "gemini"
   // (a Google AI Studio key, kept encrypted by the system keyring) or "ollama" (local).
   chat_provider: 'claude',
@@ -84,6 +89,8 @@ function load() {
     else if (key === 'language' && ['system', 'pt', 'en', 'es'].includes(value)) cfg[key] = value;
     else if ((key === 'voice_shortcut' || key === 'dictation_shortcut') && typeof value === 'string' && value.length < 60) cfg[key] = value;
     else if (key === 'super_tab' && ['last', 'notif', 'controls', 'today', 'tasks', 'clip', 'apps', 'wall', 'power', 'chat', 'look'].includes(value)) cfg[key] = value;
+    else if ((key === 'weather_city' || key === 'font_family') && typeof value === 'string' && value.length < 80 && !/[;{}"<>]/.test(value)) cfg[key] = value;
+    else if (key === 'font_weight' && [300, 400, 500, 600, 700].includes(value)) cfg[key] = value;
     else if (key === 'bar_content' && ['info', 'clock', 'both'].includes(value)) cfg[key] = value;
     else if (key === 'voice_name' && typeof value === 'string' && /^[A-Z][a-z]{2,20}$/.test(value)) cfg[key] = value;
     else if (key === 'wallpaper_dir' && typeof value === 'string') cfg[key] = value;

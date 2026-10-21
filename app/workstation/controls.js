@@ -1,4 +1,4 @@
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 
 /**
  * The Controls tab: network, Bluetooth, sound output and input, volumes, brightness,
@@ -149,4 +149,94 @@ async function set({ what, value }) {
   return state();
 }
 
-module.exports = { state, set };
+// ---------- Wi-Fi networks and Bluetooth devices: list, connect, disconnect ----------
+
+/** nmcli -t separates fields with ':' and escapes ':' inside them as '\:'. */
+const fields = (line) => line.split(/(?<!\\):/).map((f) => f.replace(/\\:/g, ':'));
+
+/** Networks nearby, the one in use first, then the strongest: [{ ssid, signal, secure, inUse, known }] */
+async function wifiList(rescan = false) {
+  const [out, saved] = await Promise.all([
+    run('nmcli', ['-t', '-f', 'IN-USE,SSID,SIGNAL,SECURITY', 'device', 'wifi', 'list', '--rescan', rescan ? 'yes' : 'auto'], 15_000),
+    run('nmcli', ['-t', '-f', 'NAME,TYPE', 'connection', 'show']),
+  ]);
+  if (out === null) return null;
+  const known = new Set((saved ?? '').trim().split('\n').map(fields).filter((f) => /wireless/.test(f[1] ?? '')).map((f) => f[0]));
+  return parseWifi(out, known);
+}
+function parseWifi(out, known = new Set()) {
+  const best = new Map();
+  for (const line of out.trim().split('\n')) {
+    const [use, ssid, signal, security] = fields(line);
+    if (!ssid) continue; // hidden networks
+    const net = { ssid, signal: Number(signal) || 0, secure: !!security && security !== '--', inUse: use === '*', known: known.has(ssid) };
+    const prev = best.get(ssid);
+    if (!prev || net.inUse || (!prev.inUse && net.signal > prev.signal)) best.set(ssid, net);
+  }
+  return [...best.values()].sort((a, b) => b.inUse - a.inUse || b.known - a.known || b.signal - a.signal);
+}
+
+/** Connect: a saved network as it is; a new one with its password (given on stdin, not in the command line). */
+function wifiConnect(ssid, password = '') {
+  return new Promise((resolve) => {
+    const args = password ? ['--ask', 'device', 'wifi', 'connect', ssid] : ['connection', 'up', 'id', ssid];
+    const p = spawn('nmcli', args, { env: { ...process.env, LC_ALL: 'C' } });
+    let err = '';
+    p.stderr.on('data', (d) => (err += d));
+    p.stdout.on('data', (d) => (err += d));
+    p.on('error', () => resolve({ ok: false }));
+    p.on('exit', (code) => resolve({ ok: code === 0, wrongPassword: /secrets were required|password|802-1x/i.test(err), error: code ? err.trim().split('\n').pop() : '' }));
+    if (password) p.stdin.write(`${password}\n`);
+    p.stdin.end();
+    setTimeout(() => p.kill(), 45_000);
+  });
+}
+async function wifiConnectNew(ssid, password) {
+  // never seen: nmcli makes the connection; seen before: bring it up
+  const known = (await run('nmcli', ['-t', '-f', 'NAME', 'connection', 'show'])) ?? '';
+  if (!password && known.split('\n').includes(ssid)) return wifiConnect(ssid);
+  if (!password) {
+    const r = await run('nmcli', ['device', 'wifi', 'connect', ssid], 45_000); // open network
+    return { ok: r !== null };
+  }
+  return wifiConnect(ssid, password);
+}
+const wifiDisconnect = async (ssid) => ({ ok: (await run('nmcli', ['connection', 'down', 'id', ssid], 15_000)) !== null });
+
+/** Devices the system knows (and, after a scan, the ones around): [{ mac, name, paired, connected, icon }] */
+async function btList(scan = false) {
+  if (scan) await run('bluetoothctl', ['--timeout', '6', 'scan', 'on'], 10_000);
+  const [all, paired, connected] = await Promise.all(['', 'Paired', 'Connected'].map((k) => run('bluetoothctl', k ? ['devices', k] : ['devices'])));
+  if (all === null) return null;
+  const macs = (out) => new Set([...(out ?? '').matchAll(/^Device (\S+)/gm)].map((m) => m[1]));
+  const isPaired = macs(paired);
+  const isConnected = macs(connected);
+  const list = [...all.matchAll(/^Device (\S+) (.+)$/gm)]
+    .map(([, mac, name]) => ({ mac, name: name.trim(), paired: isPaired.has(mac), connected: isConnected.has(mac) }))
+    .filter((d) => d.paired || d.name.replace(/-/g, ':') !== d.mac) // unnamed ones around are just addresses
+    .slice(0, 30);
+  await Promise.all(
+    list.map(async (d) => {
+      d.icon = /Icon: (\S+)/.exec((await run('bluetoothctl', ['info', d.mac])) ?? '')?.[1] ?? '';
+    }),
+  );
+  return list.sort((a, b) => b.connected - a.connected || b.paired - a.paired || a.name.localeCompare(b.name));
+}
+const MAC = /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/i;
+async function btConnect(mac) {
+  if (!MAC.test(mac)) return { ok: false };
+  const info = (await run('bluetoothctl', ['info', mac])) ?? '';
+  if (!/Paired: yes/.test(info)) {
+    // a new one: pair, trust (so it reconnects by itself), then connect
+    if ((await run('bluetoothctl', ['--timeout', '20', 'pair', mac], 25_000)) === null) return { ok: false };
+    await run('bluetoothctl', ['trust', mac]);
+  }
+  const out = await run('bluetoothctl', ['--timeout', '15', 'connect', mac], 20_000);
+  return { ok: /Connection successful|already connected/i.test(out ?? '') };
+}
+async function btDisconnect(mac) {
+  if (!MAC.test(mac)) return { ok: false };
+  return { ok: (await run('bluetoothctl', ['disconnect', mac], 10_000)) !== null };
+}
+
+module.exports = { state, set, wifiList, wifiConnectNew, wifiDisconnect, btList, btConnect, btDisconnect, parseWifi };

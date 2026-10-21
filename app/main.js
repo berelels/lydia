@@ -19,6 +19,7 @@ const voiceInstall = require('./assistant/install');
 const controls = require('./workstation/controls');
 const nowplaying = require('./workstation/nowplaying');
 const { Spectrum } = require('./workstation/spectrum');
+const { weather } = require('./workstation/weather');
 const today = require('./workstation/today');
 const clip = require('./workstation/clipboard');
 const files = require('./workstation/files');
@@ -37,7 +38,7 @@ if (process.env.WAYLAND_DISPLAY && !process.argv.some((a) => a.startsWith('--ozo
 // slides inside it, and the X11 input shape follows, so the rest stays click-through.
 const GEOM = {
   winW: 840,
-  winH: 480, // below the panel: room for the tallest view
+  winH: 530, // below the panel: room for the tallest view (+ its shadow)
   pill: { w: 210, h: 38 }, // hanging from the panel when nothing is below it
   music: { w: 360, h: 86 }, // something is playing (and nothing is below): a small player
   // A window right below the panel (a maximized browser's address bar): just a
@@ -49,7 +50,7 @@ const GEOM = {
   glow: 24, // room for the shadow around the visible island
 };
 // Size of the open panel for each view (the renderer uses the same numbers).
-const VIEW_H = { notif: 400, home: 170, look: 450, tasks: 330, chat: 440, setup: 440, controls: 320, today: 300, clip: 380, apps: 380, wall: 270, power: 170 };
+const VIEW_H = { notif: 400, home: 170, look: 460, tasks: 330, chat: 440, setup: 440, controls: 320, today: 390, clip: 380, apps: 380, wall: 270, power: 170 };
 const VIEW_W = { notif: 560, home: 660, look: 720, tasks: 780, chat: 780, setup: 720, controls: 680, today: 780, clip: 660, apps: 700, wall: 780, power: 660 };
 const HOVER_IN_MS = 90;
 const HOVER_IN_FULLSCREEN_MS = 350; // reaching for a video's controls shouldn't pop her open
@@ -125,7 +126,7 @@ function place() {
 const gameMode = () => state.game && cfg.hide_in_games;
 // Out of sight: a Steam game (with peeks) or any other fullscreen, like a video (without).
 const hideMode = () => gameMode() || (state.fullscreen && !state.game && cfg.hide_in_fullscreen);
-const PREFS = ['music_card', 'hide_in_games', 'hide_in_fullscreen', 'chat_provider', 'language', 'voice_followup', 'voice_cloud', 'hide_gnome_panel', 'super_opens', 'super_tab', 'bar_content'];
+const PREFS = ['music_card', 'hide_in_games', 'hide_in_fullscreen', 'chat_provider', 'language', 'voice_followup', 'voice_cloud', 'hide_gnome_panel', 'super_opens', 'super_tab', 'bar_content', 'weather_city', 'font_family', 'font_weight'];
 const prefs = () => ({ ...Object.fromEntries(PREFS.map((k) => [k, cfg[k]])), lang: i18n.lang(), panelOk: desktop?.name === 'gnome' });
 
 /** "system" follows the desktop's language; pt, en and es pick one. */
@@ -1095,6 +1096,19 @@ const WS = {
   'notif.open': ({ id } = {}) => (desktop.notification(id, 'open'), setExpanded(false), true),
   'notif.dismiss': ({ id } = {}) => (desktop.notification(id, 'dismiss'), true),
   'notif.clear': ({ ids } = {}) => (Array.isArray(ids) && ids.forEach((id) => desktop.notification(id, 'dismiss')), true),
+  'wifi.list': ({ rescan } = {}) => controls.wifiList(!!rescan),
+  'wifi.connect': ({ ssid, password } = {}) => (typeof ssid === 'string' ? controls.wifiConnectNew(ssid, typeof password === 'string' ? password : '') : { ok: false }),
+  'wifi.disconnect': ({ ssid } = {}) => (typeof ssid === 'string' ? controls.wifiDisconnect(ssid) : { ok: false }),
+  'bt.list': ({ scan } = {}) => controls.btList(!!scan),
+  'bt.connect': ({ mac } = {}) => controls.btConnect(String(mac)),
+  'bt.disconnect': ({ mac } = {}) => controls.btDisconnect(String(mac)),
+  'weather.get': ({ force } = {}) => weather({ city: cfg.weather_city, lang: i18n.lang(), force: !!force }),
+  'fonts.list': () =>
+    new Promise((r) =>
+      execFile('fc-list', [':', 'family'], { timeout: 5000, maxBuffer: 4 << 20 }, (err, out = '') =>
+        r(err ? [] : [...new Set(String(out).split('\n').map((l) => l.split(',')[0].trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b))),
+      ),
+    ),
   'sys.overview': () => (setExpanded(false), desktop.overview()),
   'sys.settings': () => (setExpanded(false), files.launch('org.gnome.Settings') || files.launch('gnome-control-center')),
 };
@@ -1210,7 +1224,13 @@ ipcMain.on('action', (_e, id) => typeof id === 'string' && runAction(id));
 ipcMain.on('set-pref', (_e, key, value) => {
   if (!PREFS.includes(key)) return;
   const valid = { chat_provider: ['claude', 'gemini', 'ollama'], language: ['system', ...i18n.LANGS], bar_content: ['info', 'clock', 'both'], super_tab: ['last', 'notif', 'controls', 'today', 'tasks', 'clip', 'apps', 'wall', 'power', 'chat', 'look'] }[key];
-  if (valid ? !valid.includes(value) : typeof value !== 'boolean') return;
+  // text and number prefs have their own checks
+  const free = {
+    weather_city: (v) => typeof v === 'string' && v.length < 80,
+    font_family: (v) => typeof v === 'string' && v.length < 80 && !/[;{}"<>]/.test(v),
+    font_weight: (v) => [300, 400, 500, 600, 700].includes(v),
+  }[key];
+  if (free ? !free(value) : valid ? !valid.includes(value) : typeof value !== 'boolean') return;
   cfg[key] = value;
   try {
     config.save(key, value);
