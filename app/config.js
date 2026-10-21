@@ -56,6 +56,8 @@ const DEFAULTS = {
   wallpaper_dir: '',
   // The setup wizard opens on the first run until it is finished or skipped.
   setup_done: false,
+  // Lydia's eyes in the chat: "white" or "black".
+  eye_color: 'white',
   // The island's accent color (#rrggbb): active tab, switches, sliders.
   accent_color: '#8f63f7',
 };
@@ -91,6 +93,8 @@ function load() {
     else if (key === 'super_tab' && ['last', 'notif', 'controls', 'today', 'tasks', 'clip', 'apps', 'wall', 'power', 'chat', 'look'].includes(value)) cfg[key] = value;
     else if ((key === 'weather_city' || key === 'font_family') && typeof value === 'string' && value.length < 80 && !/[;{}"<>]/.test(value)) cfg[key] = value;
     else if (key === 'font_weight' && [300, 400, 500, 600, 700].includes(value)) cfg[key] = value;
+    else if (key === 'eye_color' && ['white', 'black'].includes(value)) cfg[key] = value;
+    else if (key === 'eye_color' && /^#[0-9a-f]{6}$/i.test(value)) cfg[key] = parseInt(value.slice(1, 3), 16) < 128 ? 'black' : 'white'; // the old color picker
     else if (key === 'bar_content' && ['info', 'clock', 'both'].includes(value)) cfg[key] = value;
     else if (key === 'voice_name' && typeof value === 'string' && /^[A-Z][a-z]{2,20}$/.test(value)) cfg[key] = value;
     else if (key === 'wallpaper_dir' && typeof value === 'string') cfg[key] = value;

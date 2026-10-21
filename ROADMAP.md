@@ -12,10 +12,12 @@ fácil de descobrir. Em ordem de impacto.
 - [x] Testes com `npm test` (node:test, sem dependências).
 
 ## 1. Lançar para Ubuntu 24.04+ com GNOME
-- [ ] Empacotar com electron-builder: `.deb` e AppImage, ícone, entrada no menu.
-- [ ] Tirar do pacote (asar) o que precisa ser lido por caminho: os scripts Python e a extensão do GNOME.
-- [ ] Dependências do `.deb`: `xdotool`, `x11-utils`, `python3-gi`, `gir1.2-gtk-3.0`, `pulseaudio-utils`, `bluez`, `network-manager`.
-- [ ] Sandbox do Electron com o AppArmor do 24.04 (chrome-sandbox SUID no .deb; perfil para o AppImage).
+- [x] `.deb` com electron-builder (`npm run dist`): ícone, entrada no menu, `/usr/bin/lydia`.
+- [x] Scripts Python e extensão do GNOME fora do asar (`app/paths.js`).
+- [x] Dependências do `.deb` (e recomendados: bluez, network-manager, wireplumber, pipewire-bin, ferramentas da voz).
+- [x] Perfil AppArmor do Ubuntu 24.04 instalado pelo pós-instalação do `.deb`.
+- [ ] Testar a instalação num Ubuntu 24.04 limpo (máquina virtual).
+- [ ] AppImage.
 - [ ] Voz sem compilar na máquina: baixar o whisper.cpp pronto; `python3-venv` para o Kokoro.
 - [ ] Embutir a fonte Inter (OFL).
 - [ ] Ícones pelo tema atual (hoje há uma pasta do Zorin fixa).

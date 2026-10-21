@@ -196,6 +196,8 @@ window.lydia.on('layout', (l) => {
 window.lydia.on('prefs', (p) => {
   $('language').value = p.language;
   island.dataset.bar = p.bar_content;
+  orb.style.setProperty('--eye', p.eye_color === 'black' ? '#17131f' : '#f6f1ff');
+  for (const b of document.querySelectorAll('#eye-color button')) b.classList.toggle('on', b.dataset.v === p.eye_color);
   // the font for everything ('' = Lydia's own) and how heavy ordinary text is
   const css = document.documentElement.style;
   if (p.font_family) css.setProperty('--font', `"${p.font_family}", Inter, sans-serif`);
@@ -321,7 +323,7 @@ applyAccent(DEFAULT_ACCENT);
 // ---------- views and input ----------
 
 // Same heights as VIEW_H in main.js (it shapes the clickable area from them).
-const VIEW_H = { notif: 400, home: 170, look: 460, tasks: 330, chat: 440, setup: 440, controls: 320, today: 390, clip: 380, apps: 380, wall: 270, power: 170 };
+const VIEW_H = { notif: 400, home: 170, look: 490, tasks: 330, chat: 440, setup: 440, controls: 320, today: 390, clip: 380, apps: 380, wall: 270, power: 170 };
 const VIEW_W = { notif: 560, home: 660, look: 720, tasks: 780, chat: 780, setup: 720, controls: 680, today: 780, clip: 660, apps: 700, wall: 780, power: 660 };
 let lastTab = 'controls'; // opening again (with nothing to tell) goes back to it
 // The tabs, in order. The one you are on leaves the row; the others are split
@@ -361,6 +363,7 @@ for (const sw of document.querySelectorAll('.switch[data-pref]')) {
 for (const b of document.querySelectorAll('#default-provider button')) {
   b.addEventListener('click', () => window.lydia.setPref('chat_provider', b.dataset.p));
 }
+for (const b of document.querySelectorAll('#eye-color button')) b.addEventListener('click', () => window.lydia.setPref('eye_color', b.dataset.v));
 for (const b of document.querySelectorAll('#bar-content button')) {
   b.addEventListener('click', () => window.lydia.setPref('bar_content', b.dataset.v));
 }

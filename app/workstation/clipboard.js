@@ -2,6 +2,7 @@ const { spawn } = require('child_process');
 const { nativeImage } = require('electron');
 const path = require('path');
 const readline = require('readline');
+const { unpacked } = require('../paths');
 
 /**
  * Clipboard history: text and images you copy, newest first, kept only in
@@ -49,7 +50,7 @@ function push(item) {
 function start(cb) {
   onChange = cb;
   stopped = false;
-  helper = spawn('python3', [path.join(__dirname, 'clipwatch.py')], { stdio: ['pipe', 'pipe', 'ignore'] });
+  helper = spawn('python3', [unpacked(path.join(__dirname, 'clipwatch.py'))], { stdio: ['pipe', 'pipe', 'ignore'] });
   helper.on('error', () => {}); // no python3 / GTK: no history, nothing else breaks
   helper.stdin.on('error', () => {});
   readline.createInterface({ input: helper.stdout }).on('line', (line) => {

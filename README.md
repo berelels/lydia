@@ -40,7 +40,19 @@ Everything you reach for is one move of the mouse (or the Super key) away.</p>
 
 Languages: English, Portuguese (Brazil) and Spanish.
 
-## Running it
+## Installing (Ubuntu 24.04 and newer)
+
+Build the package and install it (it pulls in what it needs):
+
+```bash
+npm install
+npm run dist
+sudo apt install ./dist/lydia_1.0.0_amd64.deb
+```
+
+Then open **Lydia** from the apps menu; the setup wizard can make her start on login.
+
+## Running from the source
 
 Requirements: Linux, Node.js 20+, Python 3 with GTK bindings (`python3-gi`), PipeWire (`wpctl`, `pw-record`) and the usual desktop tools (`pactl`, `nmcli`, `bluetoothctl`, `gdbus`, `gsettings`). On X11 she also uses `xprop` and `xdotool`. The `claude` command, Ollama and a Gemini key are optional (one of them is enough for the chat; the Gemini key also gives her the natural voice).
 
@@ -64,7 +76,7 @@ npm test
 | Other X11 desktops | The island and most tabs work; switches that use GNOME settings (dark mode, night light, do not disturb, wallpaper) don't |
 | KDE Plasma on Wayland, others | Not yet: she runs, but can't see the pointer or fullscreen windows |
 
-Tested on Zorin OS 18 (GNOME 46, X11). Packages (.deb, AppImage) are next: see the roadmap.
+Tested on Zorin OS 18 (GNOME 46, X11), from the source and as the built package.
 
 ## Privacy
 

@@ -2,6 +2,7 @@ const { execFile, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { unpacked } = require('../paths');
 
 /**
  * Hearing and speaking, all on this computer.
@@ -25,7 +26,7 @@ const paths = {
   python: path.join(HOME, 'kokoro', 'bin', 'python'), // its own venv: kokoro-onnx and onnxruntime
   kokoro: path.join(HOME, 'kokoro-v1.0.onnx'),
   voices: path.join(HOME, 'voices-v1.0.bin'),
-  server: path.join(__dirname, 'kokoro_server.py'),
+  server: unpacked(path.join(__dirname, 'kokoro_server.py')),
 };
 
 const can = {

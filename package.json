@@ -1,16 +1,92 @@
 {
   "name": "lydia",
   "version": "1.0.0",
-  "description": "A friendly desktop companion for Linux that lives at the top of your screen",
+  "description": "A workstation for Linux that lives at the top of your screen, like a dynamic island",
   "main": "app/main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "dist": "electron-builder --linux deb"
   },
-  "author": "Gabriel Dias",
+  "author": {
+    "name": "Gabriel Dias",
+    "email": "programacao@grupohermesltda.com"
+  },
   "type": "commonjs",
   "devDependencies": {
-    "electron": "^44.5.1"
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3"
   },
-  "private": true
+  "private": true,
+  "homepage": "https://github.com/berelels/lydia",
+  "build": {
+    "appId": "io.github.berelels.lydia",
+    "productName": "Lydia",
+    "electronDist": "node_modules/electron/dist",
+    "files": [
+      "app/**/*",
+      "gnome-extension/**/*",
+      "assets/logo-*.png",
+      "package.json",
+      "!**/__pycache__/**"
+    ],
+    "asarUnpack": [
+      "app/**/*.py",
+      "gnome-extension/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "linux": {
+      "target": [
+        "deb"
+      ],
+      "executableName": "lydia",
+      "icon": "assets/logo-512.png",
+      "category": "Utility",
+      "synopsis": "A workstation at the top of your screen",
+      "description": "A workstation at the top of your screen: controls, today, system, clipboard, apps, wallpapers, notifications, a music player and a voice assistant, in a dynamic island.",
+      "desktop": {
+        "entry": {
+          "Name": "Lydia",
+          "Comment": "A workstation at the top of your screen",
+          "StartupWMClass": "lydia",
+          "Keywords": "workstation;assistant;voice;clipboard;music;"
+        }
+      }
+    },
+    "deb": {
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0",
+        "python3",
+        "python3-gi",
+        "gir1.2-gtk-3.0",
+        "xdotool",
+        "x11-utils",
+        "pulseaudio-utils",
+        "libglib2.0-bin",
+        "fontconfig"
+      ],
+      "recommends": [
+        "bluez",
+        "network-manager",
+        "wireplumber",
+        "pipewire-bin",
+        "python3-venv",
+        "git",
+        "cmake",
+        "build-essential"
+      ],
+      "priority": "optional"
+    }
+  },
+  "desktopName": "lydia.desktop"
 }

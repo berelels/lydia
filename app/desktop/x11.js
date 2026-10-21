@@ -1,6 +1,7 @@
 const { execFile, spawn } = require('child_process');
 const path = require('path');
 const { launchedBySteam } = require('./steam');
+const { unpacked } = require('../paths');
 
 /**
  * Plain X11 (any desktop): xprop, xdotool and pointer.py (XQueryPointer).
@@ -48,7 +49,7 @@ class X11Desktop {
   // ---------- pointer (Electron's own value goes stale while she ignores the mouse) ----------
 
   watchPointer() {
-    const p = this.spawn('python3', [path.join(__dirname, '..', 'pointer.py')], 'python3');
+    const p = this.spawn('python3', [unpacked(path.join(__dirname, '..', 'pointer.py'))], 'python3');
     let buf = '';
     p.stdout.on('data', (chunk) => {
       buf += chunk;

@@ -3,6 +3,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { findClaude } = require('./chat');
+const { unpacked } = require('./paths');
 
 /**
  * What the setup wizard checks and does: Claude login, the GNOME helper
@@ -12,7 +13,7 @@ const { findClaude } = require('./chat');
 
 const HOME = os.homedir();
 const EXT_UUID = 'lydia-helper@berelels';
-const EXT_SRC = path.join(__dirname, '..', 'gnome-extension', EXT_UUID);
+const EXT_SRC = unpacked(path.join(__dirname, '..', 'gnome-extension', EXT_UUID));
 const EXT_DIR = path.join(process.env.XDG_DATA_HOME || path.join(HOME, '.local', 'share'), 'gnome-shell', 'extensions', EXT_UUID);
 const AUTOSTART = path.join(process.env.XDG_CONFIG_HOME || path.join(HOME, '.config'), 'autostart', 'lydia.desktop');
 
