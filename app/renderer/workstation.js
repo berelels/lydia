@@ -76,30 +76,83 @@ function renderControls() {
   for (const r of $('ctl-sliders').querySelectorAll('input[type="range"]')) r.style.setProperty('--v', `${r.value}%`); // (inline style="" is blocked by the page's CSP)
 }
 
+let playerKey = '';
+let volTimer = 0; // the volume sliders (player and music card) send at most every 60 ms
+let playerAt = 0; // when `media` was read: the position runs on from there while it plays
+/** The player in Controls: like the bar's music card, larger. Rebuilt only when the song changes. */
 function renderPlayer() {
   const p = media;
+  const box = $('player');
   if (!p) {
-    $('player').innerHTML = `<div class="player-empty muted">${esc(t('ctl.nothing'))}</div>`;
+    playerKey = '';
+    box.classList.remove('has');
+    box.innerHTML = `<div class="player-empty muted">${esc(t('ctl.nothing'))}</div>`;
     return;
   }
-  const pct = p.length ? Math.min(100, (p.position / p.length) * 100) : 0;
-  $('player').innerHTML = `
-    <div class="cover">${p.cover ? `<img src="${p.cover}" alt="">` : ''}</div>
-    <div class="meta"><b>${esc(p.title || p.app)}</b><small>${esc(p.artist || p.app)}</small>
-      ${p.length ? `<div class="bar"><i></i></div><small class="time">${clock(p.position)} / ${clock(p.length)}</small>` : ''}</div>
-    <div class="buttons">
-      <button data-act="previous">${icon('prev')}</button>
-      <button data-act="toggle" class="big">${icon(p.status === 'Playing' ? 'pause' : 'play')}</button>
-      <button data-act="next">${icon('next')}</button>
-    </div>`;
-  const bar = $('player').querySelector('.bar i');
-  if (bar) bar.style.width = `${pct}%`;
+  const key = `${p.player}|${p.title}|${p.cover?.length ?? 0}`;
+  if (key !== playerKey) {
+    playerKey = key;
+    box.classList.add('has');
+    box.innerHTML = `
+      <div class="cp-bg"></div>
+      <div class="cover"></div>
+      <div class="meta"><b>${esc(p.title || p.identity || p.app)}</b><small>${esc(p.artist || p.identity || p.app)}</small></div>
+      <div class="cp-pos"><input type="range" min="0" max="1000" value="0"><small class="time"></small></div>
+      <div class="buttons">
+        <button data-act="previous">${icon('prev')}</button>
+        <button data-act="toggle" class="big"></button>
+        <button data-act="next">${icon('next')}</button>
+      </div>
+      <label class="cp-vol" title="${esc(t('music.volume'))}">${icon('volume')}<input type="range" min="0" max="100"></label>`;
+    const url = p.cover ? `url("${p.cover}")` : '';
+    box.querySelector('.cp-bg').style.backgroundImage = url;
+    box.querySelector('.cover').style.backgroundImage = url;
+  }
+  box.querySelector('[data-act="toggle"]').innerHTML = icon(p.status === 'Playing' ? 'pause' : 'play');
+  box.classList.toggle('playing', p.status === 'Playing');
+  box.querySelector('.cp-pos').hidden = !p.length;
+  const vol = box.querySelector('.cp-vol input');
+  box.querySelector('.cp-vol').hidden = p.volume == null;
+  if (p.volume != null && document.activeElement !== vol) {
+    vol.value = p.volume;
+    vol.style.setProperty('--v', `${p.volume}%`);
+  }
+  tickPlayer();
 }
+function tickPlayer() {
+  const p = media;
+  const pos = $('player').querySelector('.cp-pos input');
+  if (!p?.length || !pos || document.activeElement === pos) return;
+  const now = Math.min(p.length, p.position + (p.status === 'Playing' ? (Date.now() - playerAt) / 1000 : 0));
+  pos.value = Math.round((now / p.length) * 1000);
+  pos.style.setProperty('--v', `${(now / p.length) * 100}%`);
+  $('player').querySelector('.time').textContent = `${clock(now)} / ${clock(p.length)}`;
+}
+setInterval(() => island.dataset.view === 'controls' && state.expanded && tickPlayer(), 500);
+$('player').addEventListener('input', (e) => {
+  const r = e.target;
+  if (r.type !== 'range' || !media) return;
+  if (r.closest('.cp-vol')) {
+    r.style.setProperty('--v', `${r.value}%`);
+    clearTimeout(volTimer);
+    volTimer = setTimeout(() => ws('media.volume', { player: media.player, value: Number(r.value) }), 60);
+  } else r.style.setProperty('--v', `${r.value / 10}%`);
+});
+$('player').addEventListener('change', async (e) => {
+  const r = e.target;
+  if (r.type !== 'range' || !media?.length || r.closest('.cp-vol')) return;
+  const seconds = (r.value / 1000) * media.length;
+  media = { ...media, position: seconds };
+  playerAt = Date.now();
+  r.blur();
+  await ws('media.seek', { player: media.player, trackId: media.trackId, seconds });
+});
 
 async function loadControls() {
   const [c, m] = await Promise.all([ws('controls.get'), ws('media.get')]);
   if (c) ctl = c;
   media = m;
+  playerAt = Date.now();
   renderControls();
   renderPlayer();
 }
@@ -144,6 +197,7 @@ $('player').addEventListener('click', async (e) => {
   const b = e.target.closest('button[data-act]');
   if (!b || !media) return;
   media = await ws('media.do', { player: media.player, action: b.dataset.act });
+  playerAt = Date.now();
   renderPlayer();
 });
 
@@ -504,7 +558,6 @@ setTimeout(() => ws('notif.get').then((l) => ((notifs = l), renderNotifCount()))
 let music = null; // the last report from main (the cover kept: it only comes when it changes)
 let musicCover = '';
 let seeking = false;
-let volTimer = 0;
 const PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
 const PAUSE = '<svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>';
 
@@ -550,6 +603,8 @@ function drawWave() {
   $('music-squiggle').style.width = `${w}px`;
 }
 
+// the song's tempo: one wavelength of the wave per beat
+window.lydia.on('tempo', (bpm) => $('music').style.setProperty('--beat', `${(60 / bpm).toFixed(3)}s`));
 window.lydia.on('media', (m) => {
   if (!m) return void (music = null);
   if (m.cover !== undefined) musicCover = m.cover;

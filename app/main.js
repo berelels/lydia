@@ -18,6 +18,7 @@ const intents = require('./assistant/intents');
 const voiceInstall = require('./assistant/install');
 const controls = require('./workstation/controls');
 const nowplaying = require('./workstation/nowplaying');
+const { Tempo } = require('./workstation/tempo');
 const today = require('./workstation/today');
 const clip = require('./workstation/clipboard');
 const files = require('./workstation/files');
@@ -38,7 +39,7 @@ const GEOM = {
   winW: 840,
   winH: 480, // below the panel: room for the tallest view
   pill: { w: 210, h: 38 }, // hanging from the panel when nothing is below it
-  music: { w: 440, h: 112 }, // something is playing (and nothing is below): a small player
+  music: { w: 360, h: 86 }, // something is playing (and nothing is below): a small player
   // A window right below the panel (a maximized browser's address bar): just a
   // thin handle, so she covers nothing. (GNOME draws its panel above every
   // window, so she can't live inside it.)
@@ -1405,8 +1406,11 @@ app.whenReady().then(() => {
   // What is playing: the music card on the closed bar (playing, or paused a moment ago)
   let asking = false;
   let lastPlaying = 0;
+  const tempo = new Tempo((bpm) => send('tempo', bpm));
+  app.on('before-quit', () => tempo.stop());
   let lastCover = '';
   every(2000, async () => {
+    if (hideMode() && tempo.running) tempo.stop();
     if (asking || hideMode()) return;
     asking = true;
     const m = await nowplaying.nowPlaying().catch(() => null);
@@ -1418,6 +1422,10 @@ app.whenReady().then(() => {
       relayout();
     }
     if (!card && !state.expanded) return;
+    // the wave on the card moves with the song: its tempo, heard only while the card shows it
+    const showing = layout.music && !state.expanded;
+    if (m?.status === 'Playing' && showing) tempo.start();
+    else if (tempo.running) tempo.stop();
     // the cover (a large data URL) only when it changes
     const cover = m?.cover ?? '';
     send('media', m && { ...m, cover: cover === lastCover ? undefined : cover, at: Date.now() });
