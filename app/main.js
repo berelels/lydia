@@ -18,7 +18,7 @@ const intents = require('./assistant/intents');
 const voiceInstall = require('./assistant/install');
 const controls = require('./workstation/controls');
 const nowplaying = require('./workstation/nowplaying');
-const { Tempo } = require('./workstation/tempo');
+const { Spectrum } = require('./workstation/spectrum');
 const today = require('./workstation/today');
 const clip = require('./workstation/clipboard');
 const files = require('./workstation/files');
@@ -1406,11 +1406,11 @@ app.whenReady().then(() => {
   // What is playing: the music card on the closed bar (playing, or paused a moment ago)
   let asking = false;
   let lastPlaying = 0;
-  const tempo = new Tempo((bpm) => send('tempo', bpm));
-  app.on('before-quit', () => tempo.stop());
+  const spectrum = new Spectrum((levels) => send('levels', levels));
+  app.on('before-quit', () => spectrum.stop());
   let lastCover = '';
   every(2000, async () => {
-    if (hideMode() && tempo.running) tempo.stop();
+    if (hideMode() && spectrum.running) spectrum.stop();
     if (asking || hideMode()) return;
     asking = true;
     const m = await nowplaying.nowPlaying().catch(() => null);
@@ -1422,10 +1422,10 @@ app.whenReady().then(() => {
       relayout();
     }
     if (!card && !state.expanded) return;
-    // the wave on the card moves with the song: its tempo, heard only while the card shows it
-    const showing = layout.music && !state.expanded;
-    if (m?.status === 'Playing' && showing) tempo.start();
-    else if (tempo.running) tempo.stop();
+    // the players' bars dance with the sound: it is listened to only while one of them shows
+    const showing = (layout.music && !state.expanded) || (state.expanded && state.view === 'controls');
+    if (m?.status === 'Playing' && showing) spectrum.start();
+    else if (spectrum.running) spectrum.stop();
     // the cover (a large data URL) only when it changes
     const cover = m?.cover ?? '';
     send('media', m && { ...m, cover: cover === lastCover ? undefined : cover, at: Date.now() });

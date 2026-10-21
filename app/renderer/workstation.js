@@ -77,6 +77,7 @@ function renderControls() {
 }
 
 let playerKey = '';
+let playerFrac = 0;
 let volTimer = 0; // the volume sliders (player and music card) send at most every 60 ms
 let playerAt = 0; // when `media` was read: the position runs on from there while it plays
 /** The player in Controls: like the bar's music card, larger. Rebuilt only when the song changes. */
@@ -97,13 +98,15 @@ function renderPlayer() {
       <div class="cp-bg"></div>
       <div class="cover"></div>
       <div class="meta"><b>${esc(p.title || p.identity || p.app)}</b><small>${esc(p.artist || p.identity || p.app)}</small></div>
-      <div class="cp-pos"><input type="range" min="0" max="1000" value="0"><small class="time"></small></div>
+      <div class="cp-pos"><div class="scrub"><div class="bars"></div><input type="range" min="0" max="1000" value="0"></div><small class="time"></small></div>
       <div class="buttons">
         <button data-act="previous">${icon('prev')}</button>
         <button data-act="toggle" class="big"></button>
         <button data-act="next">${icon('next')}</button>
       </div>
       <label class="cp-vol" title="${esc(t('music.volume'))}">${icon('volume')}<input type="range" min="0" max="100"></label>`;
+    box.querySelector('.bars').innerHTML = '<i></i>'.repeat(BARS);
+    still = stillShape(p.title || p.app);
     const url = p.cover ? `url("${p.cover}")` : '';
     box.querySelector('.cp-bg').style.backgroundImage = url;
     box.querySelector('.cover').style.backgroundImage = url;
@@ -124,8 +127,9 @@ function tickPlayer() {
   const pos = $('player').querySelector('.cp-pos input');
   if (!p?.length || !pos || document.activeElement === pos) return;
   const now = Math.min(p.length, p.position + (p.status === 'Playing' ? (Date.now() - playerAt) / 1000 : 0));
-  pos.value = Math.round((now / p.length) * 1000);
-  pos.style.setProperty('--v', `${(now / p.length) * 100}%`);
+  playerFrac = now / p.length;
+  pos.value = Math.round(playerFrac * 1000);
+  paintBars($('player').querySelector('.bars'), playerFrac);
   $('player').querySelector('.time').textContent = `${clock(now)} / ${clock(p.length)}`;
 }
 setInterval(() => island.dataset.view === 'controls' && state.expanded && tickPlayer(), 500);
@@ -136,7 +140,7 @@ $('player').addEventListener('input', (e) => {
     r.style.setProperty('--v', `${r.value}%`);
     clearTimeout(volTimer);
     volTimer = setTimeout(() => ws('media.volume', { player: media.player, value: Number(r.value) }), 60);
-  } else r.style.setProperty('--v', `${r.value / 10}%`);
+  } else paintBars($('player').querySelector('.bars'), r.value / 1000);
 });
 $('player').addEventListener('change', async (e) => {
   const r = e.target;
@@ -582,32 +586,50 @@ function renderMusic() {
     v.style.setProperty('--v', `${music.volume}%`);
   }
 }
-let waveFor = 0; // the bar width the wave was drawn for
+let musicFrac = 0;
 function tickMusic() {
   if (!music || !island.classList.contains('music') || seeking) return;
-  if ($('music-scrub').clientWidth !== waveFor) drawWave(); // first time shown (hidden, it has no width)
-  const frac = music.length ? Math.min(1, musicPos() / music.length) : 0;
-  $('music-pos').value = Math.round(frac * 1000);
-  $('music-scrub').style.setProperty('--f', frac.toFixed(4));
+  musicFrac = music.length ? Math.min(1, musicPos() / music.length) : 0;
+  $('music-pos').value = Math.round(musicFrac * 1000);
+  paintBars($('music-bars'), musicFrac);
 }
 setInterval(tickMusic, 250);
 
-/** The wavy line (like a phone's player): a long repeating wave, clipped to the part already played. */
-function drawWave() {
-  waveFor = $('music-scrub').clientWidth;
-  const w = waveFor + 40;
-  let d = 'M0 6';
-  for (let x = 0; x < w; x += 16) d += ` q4 -5 8 0 t8 0`;
-  $('music-wave').setAttribute('d', d);
-  $('music-squiggle').setAttribute('viewBox', `0 0 ${w} 12`);
-  $('music-squiggle').style.width = `${w}px`;
-}
+// ---------- the visualizer: bars that dance with the sound (live from spectrum.js), played ones white ----------
 
-// the song's tempo: one wavelength of the wave per beat
-window.lydia.on('tempo', (bpm) => $('music').style.setProperty('--beat', `${(60 / bpm).toFixed(3)}s`));
+const BARS = 32;
+for (const box of document.querySelectorAll('.bars')) box.innerHTML = '<i></i>'.repeat(BARS);
+let live = null; // the latest levels, bass to treble
+let liveAt = 0;
+/** Paused or not listened to: a still shape of the song (from its title), so the bar isn't flat. */
+function stillShape(seed) {
+  let h = [...seed].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+  return Array.from({ length: BARS }, () => ((h = (h * 1103515245 + 12345) >>> 0) / 2 ** 32) * 0.4 + 0.15);
+}
+let still = stillShape('');
+function paintBars(box, frac) {
+  if (!box) return;
+  const levels = live && Date.now() - liveAt < 400 ? live : still;
+  const bars = box.children;
+  for (let i = 0; i < bars.length; i++) {
+    // the spectrum is bass to treble; mirrored around the middle it reads like a waveform
+    const k = Math.abs(i - (bars.length - 1) / 2) / ((bars.length - 1) / 2);
+    const v = levels[Math.min(levels.length - 1, Math.floor(k * levels.length))] ?? 0.2;
+    bars[i].style.transform = `scaleY(${Math.max(0.12, v).toFixed(2)})`;
+    bars[i].classList.toggle('played', (i + 0.5) / bars.length <= frac);
+  }
+}
+window.lydia.on('levels', (l) => {
+  live = l;
+  liveAt = Date.now();
+  if (island.classList.contains('music') && !state.expanded) paintBars($('music-bars'), musicFrac);
+  if (state.expanded && island.dataset.view === 'controls') paintBars($('player').querySelector('.bars'), playerFrac);
+});
+
 window.lydia.on('media', (m) => {
   if (!m) return void (music = null);
   if (m.cover !== undefined) musicCover = m.cover;
+  if (m.title !== music?.title) still = stillShape(m.title || m.app);
   music = m;
   renderMusic();
   tickMusic();
@@ -626,7 +648,7 @@ $('music-play').addEventListener('click', () => musicDo('toggle'));
 for (const b of $('music').querySelectorAll('.music-btn')) b.addEventListener('click', () => musicDo(b.dataset.act));
 $('music-pos').addEventListener('input', (e) => {
   seeking = true;
-  $('music-scrub').style.setProperty('--f', (e.target.value / 1000).toFixed(4));
+  paintBars($('music-bars'), e.target.value / 1000);
 });
 $('music-pos').addEventListener('change', async (e) => {
   if (!music?.length) return void (seeking = false);
