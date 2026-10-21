@@ -38,10 +38,11 @@ const can = {
 /**
  * Records until silence follows speech (or `max` ms, or stop()). Calls
  * onLevel(0..1) as you talk, for the "listening" animation.
- * Resolves the WAV path, or null if nobody spoke.
+ * Resolves the WAV path, or null if nobody spoke; dead() says the mic gave pure silence.
  */
 function listen({ onLevel = () => {}, max = 15_000, quietMs = 1100, waitMs = 6000 } = {}) {
   let stop = () => {};
+  let peak = 0; // 0 all along: the microphone sends nothing at all (off, unplugged)
   const done = new Promise((resolve) => {
     const rec = spawn('pw-record', ['--rate', String(RATE), '--channels', '1', '--format', 's16', '-'], { stdio: ['ignore', 'pipe', 'ignore'] });
     const chunks = [];
@@ -51,7 +52,10 @@ function listen({ onLevel = () => {}, max = 15_000, quietMs = 1100, waitMs = 600
     let noise = 0; // the room's level, learned in the first moments
     let samples = 0;
     const started = Date.now();
+    let over = false;
     const finish = () => {
+      if (over) return;
+      over = true;
       clearTimeout(timer);
       rec.kill('SIGINT');
       if (!spoke) return resolve(null);
@@ -65,6 +69,7 @@ function listen({ onLevel = () => {}, max = 15_000, quietMs = 1100, waitMs = 600
     const timer = setTimeout(finish, max);
     rec.on('error', () => resolve(null));
     rec.stdout.on('data', (buf) => {
+      if (over) return; // audio still in the pipe after the end: it would say "listening" again
       chunks.push(buf);
       bytes += buf.length;
       // loudness of this chunk (RMS of 16-bit samples)
@@ -75,6 +80,7 @@ function listen({ onLevel = () => {}, max = 15_000, quietMs = 1100, waitMs = 600
         sum += v * v;
       }
       const rms = Math.sqrt(sum / Math.max(1, n));
+      peak = Math.max(peak, rms);
       samples++;
       if (samples < 6) noise = Math.max(noise, rms); // ~the first 0.3 s
       const loud = rms > Math.max(0.02, noise * 2.2);
@@ -89,7 +95,7 @@ function listen({ onLevel = () => {}, max = 15_000, quietMs = 1100, waitMs = 600
       } else if (now - started > waitMs) finish();
     });
   });
-  return { done, stop: () => stop() };
+  return { done, stop: () => stop(), dead: () => peak === 0 };
 }
 
 function wavHeader(dataLen, rate = RATE) {

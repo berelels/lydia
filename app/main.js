@@ -768,8 +768,13 @@ async function toggleVoice({ followUp = false } = {}) {
   // a follow-up waits less for you to start talking, and silence just ends the conversation
   listening = voice.listen({ onLevel: (level) => send('voice', { state: 'listening', level }), ...(followUp ? { waitMs: 5000 } : {}) });
   const file = await listening.done;
+  const dead = listening.dead();
   listening = null;
-  if (!file) return setVoice('idle');
+  if (!file) {
+    setVoice('idle');
+    if (dead && !followUp) notify('info', t('voice.mic_silent'), [t('voice.mic_silent_hint')], 8);
+    return;
+  }
   setVoice('thinking');
   const r = await voice.transcribe(file, lang());
   if (r.error || !r.text) {
@@ -834,8 +839,13 @@ async function toggleDictation() {
   // longer pauses are fine here: you are thinking about what to write
   dictating = voice.listen({ onLevel: (level) => send('voice', { state: 'listening', level, dictation: true }), max: 120_000, quietMs: 2500, waitMs: 8000 });
   const file = await dictating.done;
+  const dead = dictating.dead();
   dictating = null;
-  if (!file) return setVoice('idle');
+  if (!file) {
+    setVoice('idle');
+    if (dead) notify('info', t('voice.mic_silent'), [t('voice.mic_silent_hint')], 8);
+    return;
+  }
   setVoice('thinking', { dictation: true });
   const r = await voice.transcribe(file, lang(), { prompt: false });
   if (r.error || !r.text) {
