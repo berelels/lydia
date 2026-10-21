@@ -195,6 +195,36 @@
       </div>
 
       <div class="wide view-chat">
+        <!-- Lydia herself: only here, where you talk to her. No mouth: it's all in the eyes. -->
+        <div class="card lydia-card">
+          <div id="lydia">
+            <div class="breath">
+              <svg viewBox="0 0 100 100" aria-hidden="true">
+                <defs>
+                  <radialGradient id="g-orb" cx="34%" cy="28%" r="82%">
+                    <stop offset="0" class="b0"/>
+                    <stop offset=".34" class="b1"/>
+                    <stop offset=".74" class="b2"/>
+                    <stop offset="1" class="b3"/>
+                  </radialGradient>
+                </defs>
+                <circle cx="50" cy="50" r="44" fill="url(#g-orb)"/>
+                <g class="face">
+                  <g transform="translate(35 50)"><g class="eye left">
+                    <rect class="eye-dot" x="-7" y="-8.5" width="14" height="17" rx="7"/>
+                    <path class="eye-happy" d="M-8 3 Q0 -8 8 3"/>
+                  </g></g>
+                  <g transform="translate(65 50)"><g class="eye right">
+                    <rect class="eye-dot" x="-7" y="-8.5" width="14" height="17" rx="7"/>
+                    <path class="eye-happy" d="M-8 3 Q0 -8 8 3"/>
+                  </g></g>
+                </g>
+              </svg>
+            </div>
+            <span class="bubble think"><i></i><i></i><i></i></span>
+            <span class="bubble talk"><i></i><i></i><i></i><i></i></span>
+          </div>
+        </div>
         <div class="card content chat">
           <div class="content-head">
             <span class="ghost-tag" data-i18n-title="chat.temp_tip">

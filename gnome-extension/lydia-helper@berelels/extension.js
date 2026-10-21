@@ -2,7 +2,8 @@
 // X11): where the pointer is, whether a window is fullscreen on the primary
 // monitor (and which), and whether one reaches the strip below the top panel.
 // Exposed on the session bus as lydia.Desktop. Idle unless Lydia keeps calling Watch.
-// It can also hide the top panel while Lydia runs (she takes its place), and
+// It can also hide the top panel while Lydia runs (she takes its place, the
+// overview included), and
 // hand her the Super key (it opens her instead of the overview); both come
 // back as soon as Lydia stops calling.
 import GLib from 'gi://GLib';
@@ -78,21 +79,19 @@ export default class LydiaHelper extends Extension {
     this._panelHidden = false;
     this._wantSuper = false;
     this._superId = 0; // our overlay-key handler while the Super key is Lydia's
+    this._refitId = 0; // waiting for the work area to change (see _refitAfter)
     this._reserve = 0; // with the panel hidden: the strip kept free for Lydia's bar
     this._spacer = null;
     this._monitors = Main.layoutManager.connect('monitors-changed', () => this._setSpacer(this._panelHidden ? this._reserve : 0, true));
-    this._overview = [
-      Main.overview.connect('showing', () => this._panelHidden && Main.layoutManager.panelBox.show()),
-      Main.overview.connect('hiding', () => this._panelHidden && Main.layoutManager.panelBox.hide()),
-    ];
   }
 
   disable() {
+    if (this._refitId) global.display.disconnect(this._refitId);
+    this._refitId = 0;
     this._wantHidden = false;
     this._applyPanel();
     this._wantSuper = false;
     this._applySuper();
-    for (const id of this._overview) Main.overview.disconnect(id);
     Main.layoutManager.disconnect(this._monitors);
     this._sleep();
     Gio.bus_unown_name(this._owner);
@@ -194,12 +193,14 @@ export default class LydiaHelper extends Extension {
     const hide = this._wantHidden && Date.now() <= this._until;
     if (hide === this._panelHidden) return;
     this._panelHidden = hide;
+    this._refitAfter();
     const lm = Main.layoutManager;
     const box = lm.panelBox;
-    // tracked again without struts: windows (and the work area) take its space
+    // tracked again without struts (windows and the work area take its space) and
+    // without trackFullscreen, or the shell shows it again on every overview
     try {
       lm.removeChrome(box);
-      lm.addChrome(box, { affectsStruts: !hide, trackFullscreen: true });
+      lm.addChrome(box, { affectsStruts: !hide, trackFullscreen: !hide });
     } catch (e) {
       logError(e, 'Lydia helper: panel');
       if (!box.get_parent()) lm.addChrome(box, { affectsStruts: true, trackFullscreen: true }); // never lose the panel
@@ -207,13 +208,14 @@ export default class LydiaHelper extends Extension {
       box.show();
       return;
     }
-    box.visible = !hide || Main.overview.visible;
+    box.visible = !hide;
     this._setSpacer(hide ? this._reserve : 0);
   }
 
   /** An invisible chrome actor that only reserves space (no drawing, no input). */
   _setSpacer(height, again = false) {
     if (this._spacer && this._spacer.height === height && !again) return;
+    this._refitAfter();
     if (this._spacer) {
       Main.layoutManager.removeChrome(this._spacer);
       this._spacer.destroy();
@@ -242,6 +244,44 @@ export default class LydiaHelper extends Extension {
     } catch (e) {
       logError(e, 'Lydia helper: Super key');
     }
+  }
+
+  /** The primary monitor's work area now. */
+  _workArea() {
+    const ws = global.workspace_manager.get_active_workspace();
+    return ws.get_work_area_for_monitor(global.display.get_primary_monitor());
+  }
+
+  /**
+   * The work area is about to change (panel or strip in or out). Maximized
+   * windows follow by themselves; tiled ones (Zorin's tiling, a browser
+   * snapped to the top) don't, and would leave the old strip empty with the
+   * wallpaper showing: those touching the old top edge are stretched to the new one.
+   */
+  _refitAfter() {
+    if (this._refitId) return; // one pending is enough: it compares with the area before all of it
+    const before = this._workArea();
+    const stop = () => {
+      if (!this._refitId) return;
+      global.display.disconnect(this._refitId);
+      this._refitId = 0;
+    };
+    GLib.timeout_add(GLib.PRIORITY_DEFAULT, 3000, () => (stop(), GLib.SOURCE_REMOVE)); // it never changed: forget it
+    this._refitId = global.display.connect('workareas-changed', () => {
+      stop();
+      const after = this._workArea();
+      const near = (a, b) => Math.abs(a - b) <= 2;
+      const primary = global.display.get_primary_monitor();
+      for (const actor of global.get_window_actors()) {
+        const w = actor.get_meta_window();
+        if (!w || w.get_monitor() !== primary || w.is_fullscreen() || w.minimized) continue;
+        if (w.get_window_type() !== Meta.WindowType.NORMAL || w.get_maximized() === Meta.MaximizeFlags.BOTH) continue;
+        const r = w.get_frame_rect();
+        if (!near(r.y, before.y)) continue;
+        const bottom = near(r.y + r.height, before.y + before.height) ? after.y + after.height : r.y + r.height;
+        w.move_resize_frame(true, r.x, after.y, r.width, bottom - after.y);
+      }
+    });
   }
 
   _self() {

@@ -48,7 +48,7 @@ const GEOM = {
 };
 // Size of the open panel for each view (the renderer uses the same numbers).
 const VIEW_H = { home: 170, look: 410, tasks: 330, chat: 440, setup: 440, controls: 320, today: 300, clip: 380, apps: 380, wall: 250, power: 170 };
-const VIEW_W = { home: 660, look: 720, tasks: 780, chat: 720, setup: 720, controls: 680, today: 780, clip: 660, apps: 700, wall: 780, power: 660 };
+const VIEW_W = { home: 660, look: 720, tasks: 780, chat: 780, setup: 720, controls: 680, today: 780, clip: 660, apps: 700, wall: 780, power: 660 };
 const HOVER_IN_MS = 90;
 const HOVER_IN_FULLSCREEN_MS = 350; // reaching for a video's controls shouldn't pop her open
 const HOVER_OUT_MS = 450;
@@ -80,17 +80,20 @@ let shapeTimer = null;
 let shapeNow = null;
 // top: where the island hangs inside the window (below the panel, or 0 in fullscreen).
 // top: the collapsed island; topOpen: the open panel (both hang from the panel, or the screen edge).
-const layout = { panel: 0, top: 0, topOpen: 0, lip: false, edge: false, compact: false, hidden: false, peek: false, winH: GEOM.winH };
+const layout = { panel: 0, top: 0, topOpen: 0, lip: false, edge: false, compact: false, hidden: false, peek: false, bar: false, winW: GEOM.winW, winH: GEOM.winH };
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.exit(0);
 
 function islandRect(kind) {
+  if (kind === 'bar') return { x: 0, y: layout.top, width: layout.winW, height: GEOM.pill.h };
   const w = kind === 'panel' ? VIEW_W[state.view] ?? GEOM.panel.w : GEOM[kind].w;
   const h = kind === 'panel' ? VIEW_H[state.view] ?? GEOM.panel.h : GEOM[kind].h;
-  return { x: Math.round((GEOM.winW - w) / 2), y: kind === 'panel' ? layout.topOpen : layout.top, width: w, height: h };
+  return { x: Math.round((layout.winW - w) / 2), y: kind === 'panel' ? layout.topOpen : layout.top, width: w, height: h };
 }
 const collapsedKind = () => (layout.lip ? 'lip' : layout.compact ? 'mini' : 'pill');
+// In GNOME's place (panel hidden) the closed pill is drawn as a full-width bar; hover still means its middle.
+const drawnKind = () => (collapsedKind() === 'pill' && layout.bar ? 'bar' : collapsedKind());
 
 function grow(r, m) {
   const x = Math.max(0, r.x - m);
@@ -98,7 +101,7 @@ function grow(r, m) {
   return {
     x,
     y,
-    width: Math.min(GEOM.winW, r.x + r.width + m) - x,
+    width: Math.min(layout.winW, r.x + r.width + m) - x,
     height: Math.min(layout.winH, r.y + r.height + m) - y,
   };
 }
@@ -108,12 +111,15 @@ const inside = (p, r) => p.x >= r.x && p.x < r.x + r.width && p.y >= r.y && p.y 
 function place() {
   const d = screen.getPrimaryDisplay();
   const area = d.workArea;
-  const x = Math.round(area.x + (area.width - GEOM.winW) / 2);
-  // With GNOME's panel hidden the strip at the top is kept free for her (the helper reserves it): she sits in it.
+  // With GNOME's panel hidden the strip at the top is kept free for her (the helper
+  // reserves it): she is the top bar there, across the whole monitor.
   const ownStrip = cfg.hide_gnome_panel && desktop.name === 'gnome' && desktop.version >= 3;
+  layout.bar = ownStrip;
+  layout.winW = ownStrip ? d.bounds.width : GEOM.winW;
+  const x = ownStrip ? d.bounds.x : Math.round(area.x + (area.width - GEOM.winW) / 2);
   layout.panel = (ownStrip ? 0 : Math.max(0, area.y - d.bounds.y)) + cfg.island_y_offset;
   layout.winH = GEOM.winH + layout.panel;
-  win.setBounds({ x, y: d.bounds.y, width: GEOM.winW, height: layout.winH });
+  win.setBounds({ x, y: d.bounds.y, width: layout.winW, height: layout.winH });
   relayout(true);
 }
 
@@ -151,7 +157,7 @@ function relayout(force = false) {
     top = -(GEOM.pill.h + GEOM.glow);
     compact = true;
   } else if (peek) compact = true;
-  const next = { top, topOpen, lip, edge: state.fullscreen, compact, hidden, peek };
+  const next = { top, topOpen, lip, edge: state.fullscreen, compact, hidden, peek, bar: layout.bar };
   if (!force && Object.entries(next).every(([k, v]) => layout[k] === v)) return;
   Object.assign(layout, next);
   if (process.env.LYDIA_DEBUG) {
@@ -186,7 +192,7 @@ function applyShape() {
   // The shape also clips drawing; hidden, nothing needs drawing.
   const target = layout.hidden
     ? { x: 0, y: 0, width: 1, height: 1 }
-    : grow(islandRect(state.expanded ? 'panel' : collapsedKind()), GEOM.glow);
+    : grow(islandRect(state.expanded ? 'panel' : drawnKind()), GEOM.glow);
   // Collapsed (or hidden) she lets every click through; only the open panel takes them.
   win.setIgnoreMouseEvents((!state.expanded && desktop.hasPointer) || layout.hidden);
   win.setShape(shapeNow ? [shapeNow, target] : [target]);

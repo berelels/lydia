@@ -1,5 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const island = $('island');
+const orb = $('lydia'); // Lydia herself: only in the chat view
 const { t } = i18n; // i18n.js, loaded before this file
 i18n.setLang(i18n.resolve('system', navigator.languages)); // until the saved choice arrives
 const fmt = (x) => i18n.num(x);
@@ -182,6 +183,7 @@ window.lydia.on('layout', (l) => {
   island.classList.toggle('mini', compact);
   island.classList.toggle('gone', !!l.hidden);
   island.classList.toggle('peek', !!l.peek);
+  island.classList.toggle('bar', !!l.bar); // GNOME's panel hidden: the closed island is the whole top bar
   gone = !!l.hidden && !l.peek;
   if (!laidOut) {
     void island.offsetHeight;
@@ -214,7 +216,41 @@ window.lydia.on('cursor', (p) => {
   const ir = island.getBoundingClientRect();
   const over = p.x >= ir.left && p.x < ir.right && p.y >= ir.top && p.y < ir.bottom;
   island.classList.toggle('ghost', over && !p.armed && !state.expanded && island.classList.contains('edge'));
+  if (looking('chat')) follow(p);
 });
+
+// ---------- Lydia in the chat: her eyes follow the mouse, she blinks, thinks and talks ----------
+
+function follow(p) {
+  const r = orb.getBoundingClientRect();
+  const dx = p.x - (r.left + r.width / 2);
+  const dy = p.y - (r.top + r.height / 2);
+  const dist = Math.hypot(dx, dy) || 1;
+  const reach = 6 * Math.min(1, dist / 260); // in SVG units
+  orb.style.setProperty('--lx', ((dx / dist) * reach).toFixed(2));
+  orb.style.setProperty('--ly', ((dy / dist) * reach * 0.75).toFixed(2));
+}
+let happyTimer = 0;
+function smile(ms) {
+  orb.classList.add('happy');
+  clearTimeout(happyTimer);
+  happyTimer = setTimeout(() => orb.classList.remove('happy'), ms);
+}
+function blinkLater() {
+  setTimeout(() => {
+    if (looking('chat') && !orb.classList.contains('happy')) {
+      orb.classList.add('blink');
+      setTimeout(() => orb.classList.remove('blink'), 120);
+      if (Math.random() < 0.2) {
+        setTimeout(() => orb.classList.add('blink'), 240);
+        setTimeout(() => orb.classList.remove('blink'), 360);
+      }
+    }
+    blinkLater();
+  }, 2500 + Math.random() * 3500);
+}
+blinkLater();
+orb.addEventListener('click', () => smile(1200));
 
 // ---------- accent color ----------
 
@@ -229,6 +265,11 @@ const mix = (a, b, t) => toHex(hex(a).map((v, i) => v + (hex(b)[i] - v) * t));
 /** The active tab, switches and sliders take it, with a readable ink on top. */
 function applyAccent(color) {
   accent = color || DEFAULT_ACCENT;
+  // her body is the accent color: highlight → deep shade
+  orb.style.setProperty('--b0', mix(accent, '#ffffff', 0.6));
+  orb.style.setProperty('--b1', accent);
+  orb.style.setProperty('--b2', mix(accent, '#000000', 0.3));
+  orb.style.setProperty('--b3', mix(accent, '#000000', 0.58));
   const css = document.documentElement.style;
   css.setProperty('--lav', mix(accent, '#ffffff', 0.12));
   const [r, g, b] = hex(accent);
@@ -267,7 +308,7 @@ applyAccent(DEFAULT_ACCENT);
 
 // Same heights as VIEW_H in main.js (it shapes the clickable area from them).
 const VIEW_H = { home: 170, look: 410, tasks: 330, chat: 440, setup: 440, controls: 320, today: 300, clip: 380, apps: 380, wall: 250, power: 170 };
-const VIEW_W = { home: 660, look: 720, tasks: 780, chat: 720, setup: 720, controls: 680, today: 780, clip: 660, apps: 700, wall: 780, power: 660 };
+const VIEW_W = { home: 660, look: 720, tasks: 780, chat: 780, setup: 720, controls: 680, today: 780, clip: 660, apps: 700, wall: 780, power: 660 };
 let lastTab = 'controls'; // opening again (with nothing to tell) goes back to it
 function setView(view, tell = true) {
   if (!(view in VIEW_H)) return;
@@ -574,6 +615,10 @@ window.lydia.on('chat', (e) => {
   if (e.type === 'state') {
     // Gemini busy: say why it takes long, until the reply starts.
     if ((e.state === 'retrying' || e.state === 'note') && current && !raw) current.innerHTML = `<span class="hint">${esc(t('chat.retrying'))}</span>`;
+    else {
+      orb.classList.toggle('think', e.state === 'thinking');
+      orb.classList.toggle('talk', e.state === 'speaking');
+    }
   } else if (e.type === 'delta' && current) {
     raw += e.text;
     current.innerHTML = md(raw);
@@ -585,6 +630,8 @@ window.lydia.on('chat', (e) => {
     if (!looking('chat') && !e.error) notifyBadge('chat', 'Chat', t('chat.new_reply'), { text: t('news.chat'), see: t('news.see_chat'), open: () => setView('chat') });
     chatBusy = false;
     $('chat-send').disabled = false;
+    if (voiceState !== 'speaking') orb.classList.remove('think', 'talk'); // the reply is over (unless she is saying it)
+    if (!e.error) smile(1400);
     if (current) {
       current.classList.remove('typing');
       if (e.error) {
@@ -598,6 +645,7 @@ window.lydia.on('chat', (e) => {
     chatBusy = false;
     current = null;
     $('chat-send').disabled = false;
+    orb.classList.remove('think', 'talk');
     hello();
   }
 });
@@ -852,6 +900,8 @@ window.lydia.on('voice', (v) => {
   if (v.state === voiceState && v.heard == null) return;
   voiceState = v.state;
   island.dataset.voice = v.state;
+  orb.classList.toggle('think', v.state === 'thinking');
+  orb.classList.toggle('talk', v.state === 'speaking');
   $('btn-mic').classList.toggle('on', v.state === 'listening');
   renderPill(false);
 });
