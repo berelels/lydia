@@ -92,9 +92,6 @@ html, body {
 #island.mini:not(.expanded) .badge,
 #island.mini:not(.expanded) .pill-view:has(.pill-metric.important) .pill-clock { display: none; }
 
-/* in GNOME's place (its panel hidden): a black bar across the top, the info in the middle */
-#island.bar:not(.expanded):not(.lip):not(.mini) { width: 100vw; border-radius: 0; box-shadow: none; }
-
 #island.expanded {
   top: var(--top-open);
   left: 50%;

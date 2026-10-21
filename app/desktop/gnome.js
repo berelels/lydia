@@ -24,7 +24,6 @@ class GnomeDesktop {
     this.monitor = null;
     this.timer = 0;
     this.panelHidden = false;
-    this.reserve = 0; // the strip kept free for her bar while the panel is hidden
     this.superMine = false;
     this.version = 0; // of the extension running in the shell (Watch says it)
   }
@@ -61,7 +60,6 @@ class GnomeDesktop {
       });
       // again: the extension may have been reloaded
       if (this.panelHidden) call('SetPanel', ['true']);
-      if (this.panelHidden && this.version >= 3) call('Reserve', [this.reserve]);
       if (this.superMine) call('SetSuper', ['true']);
     };
     // The monitor needs a moment to subscribe before the first Watch makes the extension report.
@@ -78,10 +76,8 @@ class GnomeDesktop {
   }
 
   /** Hide GNOME's top panel while she runs (the extension brings it back when she stops). */
-  setPanel(hidden, reserve = 0) {
+  setPanel(hidden) {
     this.panelHidden = hidden;
-    this.reserve = reserve;
-    if (this.version >= 3) call('Reserve', [hidden ? reserve : 0]);
     call('SetPanel', [hidden ? 'true' : 'false']);
     return !hidden || this.version >= 2; // older helpers don't know how (yet: the shell runs the old copy until it restarts)
   }

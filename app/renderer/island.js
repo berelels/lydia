@@ -183,7 +183,6 @@ window.lydia.on('layout', (l) => {
   island.classList.toggle('mini', compact);
   island.classList.toggle('gone', !!l.hidden);
   island.classList.toggle('peek', !!l.peek);
-  island.classList.toggle('bar', !!l.bar); // GNOME's panel hidden: the closed island is the whole top bar
   gone = !!l.hidden && !l.peek;
   if (!laidOut) {
     void island.offsetHeight;

@@ -80,20 +80,17 @@ let shapeTimer = null;
 let shapeNow = null;
 // top: where the island hangs inside the window (below the panel, or 0 in fullscreen).
 // top: the collapsed island; topOpen: the open panel (both hang from the panel, or the screen edge).
-const layout = { panel: 0, top: 0, topOpen: 0, lip: false, edge: false, compact: false, hidden: false, peek: false, bar: false, winW: GEOM.winW, winH: GEOM.winH };
+const layout = { panel: 0, top: 0, topOpen: 0, lip: false, edge: false, compact: false, hidden: false, peek: false, winH: GEOM.winH };
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.exit(0);
 
 function islandRect(kind) {
-  if (kind === 'bar') return { x: 0, y: layout.top, width: layout.winW, height: GEOM.pill.h };
   const w = kind === 'panel' ? VIEW_W[state.view] ?? GEOM.panel.w : GEOM[kind].w;
   const h = kind === 'panel' ? VIEW_H[state.view] ?? GEOM.panel.h : GEOM[kind].h;
-  return { x: Math.round((layout.winW - w) / 2), y: kind === 'panel' ? layout.topOpen : layout.top, width: w, height: h };
+  return { x: Math.round((GEOM.winW - w) / 2), y: kind === 'panel' ? layout.topOpen : layout.top, width: w, height: h };
 }
 const collapsedKind = () => (layout.lip ? 'lip' : layout.compact ? 'mini' : 'pill');
-// In GNOME's place (panel hidden) the closed pill is drawn as a full-width bar; hover still means its middle.
-const drawnKind = () => (collapsedKind() === 'pill' && layout.bar ? 'bar' : collapsedKind());
 
 function grow(r, m) {
   const x = Math.max(0, r.x - m);
@@ -101,7 +98,7 @@ function grow(r, m) {
   return {
     x,
     y,
-    width: Math.min(layout.winW, r.x + r.width + m) - x,
+    width: Math.min(GEOM.winW, r.x + r.width + m) - x,
     height: Math.min(layout.winH, r.y + r.height + m) - y,
   };
 }
@@ -111,15 +108,10 @@ const inside = (p, r) => p.x >= r.x && p.x < r.x + r.width && p.y >= r.y && p.y 
 function place() {
   const d = screen.getPrimaryDisplay();
   const area = d.workArea;
-  // With GNOME's panel hidden the strip at the top is kept free for her (the helper
-  // reserves it): she is the top bar there, across the whole monitor.
-  const ownStrip = cfg.hide_gnome_panel && desktop.name === 'gnome' && desktop.version >= 3;
-  layout.bar = ownStrip;
-  layout.winW = ownStrip ? d.bounds.width : GEOM.winW;
-  const x = ownStrip ? d.bounds.x : Math.round(area.x + (area.width - GEOM.winW) / 2);
-  layout.panel = (ownStrip ? 0 : Math.max(0, area.y - d.bounds.y)) + cfg.island_y_offset;
+  const x = Math.round(area.x + (area.width - GEOM.winW) / 2);
+  layout.panel = Math.max(0, area.y - d.bounds.y) + cfg.island_y_offset;
   layout.winH = GEOM.winH + layout.panel;
-  win.setBounds({ x, y: d.bounds.y, width: layout.winW, height: layout.winH });
+  win.setBounds({ x, y: d.bounds.y, width: GEOM.winW, height: layout.winH });
   relayout(true);
 }
 
@@ -157,7 +149,7 @@ function relayout(force = false) {
     top = -(GEOM.pill.h + GEOM.glow);
     compact = true;
   } else if (peek) compact = true;
-  const next = { top, topOpen, lip, edge: state.fullscreen, compact, hidden, peek, bar: layout.bar };
+  const next = { top, topOpen, lip, edge: state.fullscreen, compact, hidden, peek };
   if (!force && Object.entries(next).every(([k, v]) => layout[k] === v)) return;
   Object.assign(layout, next);
   if (process.env.LYDIA_DEBUG) {
@@ -192,7 +184,7 @@ function applyShape() {
   // The shape also clips drawing; hidden, nothing needs drawing.
   const target = layout.hidden
     ? { x: 0, y: 0, width: 1, height: 1 }
-    : grow(islandRect(state.expanded ? 'panel' : drawnKind()), GEOM.glow);
+    : grow(islandRect(state.expanded ? 'panel' : collapsedKind()), GEOM.glow);
   // Collapsed (or hidden) she lets every click through; only the open panel takes them.
   win.setIgnoreMouseEvents((!state.expanded && desktop.hasPointer) || layout.hidden);
   win.setShape(shapeNow ? [shapeNow, target] : [target]);
@@ -1191,8 +1183,7 @@ ipcMain.on('set-pref', (_e, key, value) => {
   try {
     config.save(key, value);
   } catch {}
-  const helper = { hide_gnome_panel: () => desktop.setPanel(value, GEOM.pill.h), super_opens: () => desktop.setSuper(value) }[key];
-  if (key === 'hide_gnome_panel') setTimeout(() => alive() && place(), 600);
+  const helper = { hide_gnome_panel: () => desktop.setPanel(value), super_opens: () => desktop.setSuper(value) }[key];
   if (helper && !helper() && desktop.name === 'gnome') {
     // the shell still runs an older helper: put the new one in place; it loads when GNOME restarts
     setup.installExtension().then(() => notify('info', t('panel.restart'), [t('panel.restart_hint')], 15));
@@ -1302,8 +1293,7 @@ function startDesktop() {
     desktop = d;
     console.log(`[lydia] desktop: ${d.name}`);
     d.start();
-    if (cfg.hide_gnome_panel) d.setPanel(true, GEOM.pill.h);
-    if (cfg.hide_gnome_panel) setTimeout(() => alive() && place(), 1500); // the helper's version is known by then
+    if (cfg.hide_gnome_panel) d.setPanel(true);
     if (cfg.super_opens) d.setSuper(true);
     if (alive()) applyShape(); // with no pointer source the pill takes the mouse itself
     send('prefs', prefs()); // now it is known whether the panel can be hidden
