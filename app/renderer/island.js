@@ -165,6 +165,8 @@ window.lydia.on('stats', (s) => {
 window.lydia.on('geometry', (g) => {
   const css = document.documentElement.style;
   css.setProperty('--pill-w', `${g.pill.w}px`);
+  css.setProperty('--music-w', `${g.music.w}px`);
+  css.setProperty('--music-h', `${g.music.h}px`);
   css.setProperty('--pill-h', `${g.pill.h}px`);
   css.setProperty('--mini-w', `${g.mini.w}px`);
   css.setProperty('--lip-w', `${g.lip.w}px`);
@@ -183,6 +185,7 @@ window.lydia.on('layout', (l) => {
   island.classList.toggle('mini', compact);
   island.classList.toggle('gone', !!l.hidden);
   island.classList.toggle('peek', !!l.peek);
+  island.classList.toggle('music', !!l.music); // something playing: the small player
   gone = !!l.hidden && !l.peek;
   if (!laidOut) {
     void island.offsetHeight;
@@ -197,7 +200,7 @@ window.lydia.on('prefs', (p) => {
   document.querySelector('.switch[data-pref="super_opens"]').hidden = !p.panelOk;
   $('super-tab-row').hidden = !p.panelOk || !p.super_opens;
   const tabs = [...document.querySelectorAll('.tabs .tab[data-view]')].map((b) => ({ id: b.dataset.view, label: t(b.dataset.i18nTitle) }));
-  fillSelect($('super-tab'), [{ id: 'last', label: t('pref.super_last') }, ...tabs], p.super_tab);
+  fillSelect($('super-tab'), [{ id: 'last', label: t('pref.super_last') }, { id: 'notif', label: t('tool.notif') }, ...tabs], p.super_tab);
   if (p.lang !== i18n.lang()) {
     i18n.setLang(p.lang);
     translatePage();
@@ -309,8 +312,8 @@ applyAccent(DEFAULT_ACCENT);
 // ---------- views and input ----------
 
 // Same heights as VIEW_H in main.js (it shapes the clickable area from them).
-const VIEW_H = { home: 170, look: 450, tasks: 330, chat: 440, setup: 440, controls: 320, today: 300, clip: 380, apps: 380, wall: 250, power: 170 };
-const VIEW_W = { home: 660, look: 720, tasks: 780, chat: 780, setup: 720, controls: 680, today: 780, clip: 660, apps: 700, wall: 780, power: 660 };
+const VIEW_H = { notif: 400, home: 170, look: 450, tasks: 330, chat: 440, setup: 440, controls: 320, today: 300, clip: 380, apps: 380, wall: 270, power: 170 };
+const VIEW_W = { notif: 560, home: 660, look: 720, tasks: 780, chat: 780, setup: 720, controls: 680, today: 780, clip: 660, apps: 700, wall: 780, power: 660 };
 let lastTab = 'controls'; // opening again (with nothing to tell) goes back to it
 function setView(view, tell = true) {
   if (!(view in VIEW_H)) return;
@@ -319,7 +322,7 @@ function setView(view, tell = true) {
   if (document.querySelector(`.tabs .tab[data-view="${view}"]`)) lastTab = view;
   document.documentElement.style.setProperty('--panel-h', `${VIEW_H[view]}px`);
   document.documentElement.style.setProperty('--panel-w', `${VIEW_W[view]}px`);
-  for (const el of document.querySelectorAll('.tab[data-view]')) el.classList.toggle('active', el.dataset.view === view);
+  for (const el of document.querySelectorAll('.tab[data-view], .tool[data-view]')) el.classList.toggle('active', el.dataset.view === view);
   if (tell && view !== was) window.lydia.setView(view);
   if (view === 'tasks') startTasks();
   else stopTasks();
@@ -343,6 +346,7 @@ for (const b of document.querySelectorAll('#bar-content button')) {
   b.addEventListener('click', () => window.lydia.setPref('bar_content', b.dataset.v));
 }
 $('super-tab').addEventListener('change', (e) => window.lydia.setPref('super_tab', e.target.value));
+$('btn-notif').addEventListener('click', () => setView(island.dataset.view === 'notif' ? lastTab : 'notif'));
 $('btn-overview').addEventListener('click', () => window.lydia.ws('sys.overview'));
 $('btn-settings').addEventListener('click', () => window.lydia.ws('sys.settings'));
 

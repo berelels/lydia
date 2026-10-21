@@ -29,6 +29,8 @@ const DEFAULTS = {
   super_tab: 'last',
   // The closed bar: "info" (RAM, CPU... in turns), "clock", or "both".
   bar_content: 'both',
+  // Something playing (and the desktop below): the closed bar becomes a small player.
+  music_card: true,
   // Who answers in the chat: "claude" (the claude CLI and its login), "gemini"
   // (a Google AI Studio key, kept encrypted by the system keyring) or "ollama" (local).
   chat_provider: 'claude',
@@ -81,7 +83,7 @@ function load() {
     else if (key === 'ollama_model' && typeof value === 'string') cfg[key] = value;
     else if (key === 'language' && ['system', 'pt', 'en', 'es'].includes(value)) cfg[key] = value;
     else if ((key === 'voice_shortcut' || key === 'dictation_shortcut') && typeof value === 'string' && value.length < 60) cfg[key] = value;
-    else if (key === 'super_tab' && ['last', 'controls', 'today', 'tasks', 'clip', 'apps', 'wall', 'power', 'chat', 'look'].includes(value)) cfg[key] = value;
+    else if (key === 'super_tab' && ['last', 'notif', 'controls', 'today', 'tasks', 'clip', 'apps', 'wall', 'power', 'chat', 'look'].includes(value)) cfg[key] = value;
     else if (key === 'bar_content' && ['info', 'clock', 'both'].includes(value)) cfg[key] = value;
     else if (key === 'voice_name' && typeof value === 'string' && /^[A-Z][a-z]{2,20}$/.test(value)) cfg[key] = value;
     else if (key === 'wallpaper_dir' && typeof value === 'string') cfg[key] = value;

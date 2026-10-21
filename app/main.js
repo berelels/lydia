@@ -38,6 +38,7 @@ const GEOM = {
   winW: 840,
   winH: 480, // below the panel: room for the tallest view
   pill: { w: 210, h: 38 }, // hanging from the panel when nothing is below it
+  music: { w: 440, h: 112 }, // something is playing (and nothing is below): a small player
   // A window right below the panel (a maximized browser's address bar): just a
   // thin handle, so she covers nothing. (GNOME draws its panel above every
   // window, so she can't live inside it.)
@@ -47,8 +48,8 @@ const GEOM = {
   glow: 24, // room for the shadow around the visible island
 };
 // Size of the open panel for each view (the renderer uses the same numbers).
-const VIEW_H = { home: 170, look: 450, tasks: 330, chat: 440, setup: 440, controls: 320, today: 300, clip: 380, apps: 380, wall: 250, power: 170 };
-const VIEW_W = { home: 660, look: 720, tasks: 780, chat: 780, setup: 720, controls: 680, today: 780, clip: 660, apps: 700, wall: 780, power: 660 };
+const VIEW_H = { notif: 400, home: 170, look: 450, tasks: 330, chat: 440, setup: 440, controls: 320, today: 300, clip: 380, apps: 380, wall: 270, power: 170 };
+const VIEW_W = { notif: 560, home: 660, look: 720, tasks: 780, chat: 780, setup: 720, controls: 680, today: 780, clip: 660, apps: 700, wall: 780, power: 660 };
 const HOVER_IN_MS = 90;
 const HOVER_IN_FULLSCREEN_MS = 350; // reaching for a video's controls shouldn't pop her open
 const HOVER_OUT_MS = 450;
@@ -74,6 +75,7 @@ const state = {
   voice: 'idle', // idle | listening | thinking | speaking
 };
 let hoverSince = 0;
+let mouseOnCard = false; // the pointer is on the music card (it takes clicks then)
 let leaveSince = 0;
 let lastCursor = '';
 let shapeTimer = null;
@@ -90,7 +92,7 @@ function islandRect(kind) {
   const h = kind === 'panel' ? VIEW_H[state.view] ?? GEOM.panel.h : GEOM[kind].h;
   return { x: Math.round((GEOM.winW - w) / 2), y: kind === 'panel' ? layout.topOpen : layout.top, width: w, height: h };
 }
-const collapsedKind = () => (layout.lip ? 'lip' : layout.compact ? 'mini' : 'pill');
+const collapsedKind = () => (layout.lip ? 'lip' : layout.compact ? 'mini' : layout.music ? 'music' : 'pill');
 
 function grow(r, m) {
   const x = Math.max(0, r.x - m);
@@ -122,7 +124,7 @@ function place() {
 const gameMode = () => state.game && cfg.hide_in_games;
 // Out of sight: a Steam game (with peeks) or any other fullscreen, like a video (without).
 const hideMode = () => gameMode() || (state.fullscreen && !state.game && cfg.hide_in_fullscreen);
-const PREFS = ['hide_in_games', 'hide_in_fullscreen', 'chat_provider', 'language', 'voice_followup', 'voice_cloud', 'hide_gnome_panel', 'super_opens', 'super_tab', 'bar_content'];
+const PREFS = ['music_card', 'hide_in_games', 'hide_in_fullscreen', 'chat_provider', 'language', 'voice_followup', 'voice_cloud', 'hide_gnome_panel', 'super_opens', 'super_tab', 'bar_content'];
 const prefs = () => ({ ...Object.fromEntries(PREFS.map((k) => [k, cfg[k]])), lang: i18n.lang(), panelOk: desktop?.name === 'gnome' });
 
 /** "system" follows the desktop's language; pt, en and es pick one. */
@@ -149,7 +151,8 @@ function relayout(force = false) {
     top = -(GEOM.pill.h + GEOM.glow);
     compact = true;
   } else if (peek) compact = true;
-  const next = { top, topOpen, lip, edge: state.fullscreen, compact, hidden, peek };
+  const music = !!state.mediaCard && !lip && !compact && !hidden;
+  const next = { top, topOpen, lip, edge: state.fullscreen, compact, hidden, peek, music };
   if (!force && Object.entries(next).every(([k, v]) => layout[k] === v)) return;
   Object.assign(layout, next);
   if (process.env.LYDIA_DEBUG) {
@@ -186,7 +189,7 @@ function applyShape() {
     ? { x: 0, y: 0, width: 1, height: 1 }
     : grow(islandRect(state.expanded ? 'panel' : collapsedKind()), GEOM.glow);
   // Collapsed (or hidden) she lets every click through; only the open panel takes them.
-  win.setIgnoreMouseEvents((!state.expanded && desktop.hasPointer) || layout.hidden);
+  win.setIgnoreMouseEvents((!state.expanded && desktop.hasPointer && !mouseOnCard) || layout.hidden);
   win.setShape(shapeNow ? [shapeNow, target] : [target]);
   shapeTimer = setTimeout(() => alive() && win.setShape([target]), MORPH_MS + 80);
   shapeNow = target;
@@ -573,7 +576,19 @@ function tick() {
   }
   if (layout.hidden || (hideMode() && !state.expanded)) return; // no hover while out of sight
 
-  if (!state.expanded) {
+  if (!state.expanded && collapsedKind() === 'music') {
+    // The music card is used where it is (its buttons, the bar, the volume): it
+    // takes the mouse while the pointer is on it, and opens only when clicked.
+    const on = blind ? hovered : inside(p, r);
+    if (on !== mouseOnCard) {
+      mouseOnCard = on;
+      win.setIgnoreMouseEvents(!on);
+    }
+  } else if (!state.expanded) {
+    if (mouseOnCard) {
+      mouseOnCard = false; // the card went away under the pointer: clicks pass through again
+      win.setIgnoreMouseEvents(desktop.hasPointer);
+    }
     // At the screen edge (fullscreen) a video's controls are right below: there
     // she needs the pull from above. Elsewhere nothing is under her, so hover is enough.
     // The handle is only 7px tall: easier to hit, but a little slower to fire, so
@@ -692,6 +707,15 @@ ipcMain.on('view', (_e, view) => {
   applyShape();
 });
 ipcMain.on('collapse', () => setExpanded(false));
+// the music card's title or cover: the full player in Controls
+ipcMain.on('open', (_e, view) => {
+  if (typeof view === 'string' && view in VIEW_H) {
+    state.view = view;
+    send('view', view);
+  }
+  mouseOnCard = false;
+  setExpanded(true);
+});
 ipcMain.on('hover', (_e, on) => (hovered = !!on));
 ipcMain.on('news', (_e, on) => {
   state.news = !!on;
@@ -1009,6 +1033,8 @@ const WS = {
   'controls.get': () => controls.state(),
   'controls.set': (a) => controls.set(a ?? {}),
   'media.get': () => nowplaying.nowPlaying(),
+  'media.seek': ({ player, trackId, seconds } = {}) => nowplaying.seek(player, trackId, Number(seconds)),
+  'media.volume': ({ player, value } = {}) => nowplaying.setVolume(player, value),
   'media.do': async ({ player, action } = {}) => (await nowplaying.control(player, action), new Promise((r) => setTimeout(r, 350)).then(nowplaying.nowPlaying)),
   'tasks.get': () => today.list(),
   'tasks.add': ({ text, due } = {}) => today.add(text, due),
@@ -1063,6 +1089,11 @@ const WS = {
   },
   // restart / shut down / log out come back with { confirm } first; the page asks, then sends sure: true
   'power.do': ({ action, sure } = {}) => (POWER_CONFIRM.has(action) && !sure ? { confirm: true } : files.power(action)),
+  // the system's notifications (through the GNOME helper)
+  'notif.get': () => new Promise((r) => desktop.notifications((list) => r(list && list.map((n) => ({ ...n, icon: files.icon(n.icon) }))))),
+  'notif.open': ({ id } = {}) => (desktop.notification(id, 'open'), setExpanded(false), true),
+  'notif.dismiss': ({ id } = {}) => (desktop.notification(id, 'dismiss'), true),
+  'notif.clear': ({ ids } = {}) => (Array.isArray(ids) && ids.forEach((id) => desktop.notification(id, 'dismiss')), true),
   'sys.overview': () => (setExpanded(false), desktop.overview()),
   'sys.settings': () => (setExpanded(false), files.launch('org.gnome.Settings') || files.launch('gnome-control-center')),
 };
@@ -1177,7 +1208,7 @@ ipcMain.handle('task-kill', (_e, name) => (typeof name === 'string' ? killApp(na
 ipcMain.on('action', (_e, id) => typeof id === 'string' && runAction(id));
 ipcMain.on('set-pref', (_e, key, value) => {
   if (!PREFS.includes(key)) return;
-  const valid = { chat_provider: ['claude', 'gemini', 'ollama'], language: ['system', ...i18n.LANGS], bar_content: ['info', 'clock', 'both'], super_tab: ['last', 'controls', 'today', 'tasks', 'clip', 'apps', 'wall', 'power', 'chat', 'look'] }[key];
+  const valid = { chat_provider: ['claude', 'gemini', 'ollama'], language: ['system', ...i18n.LANGS], bar_content: ['info', 'clock', 'both'], super_tab: ['last', 'notif', 'controls', 'today', 'tasks', 'clip', 'apps', 'wall', 'power', 'chat', 'look'] }[key];
   if (valid ? !valid.includes(value) : typeof value !== 'boolean') return;
   cfg[key] = value;
   try {
@@ -1261,6 +1292,7 @@ const desktopCtx = {
 };
 const desktopEvents = {
   pointer: (p) => (pointer = p),
+  notifications: () => send('notif-changed'),
   // The Super key, when it is hers: open (with the keyboard, like a start menu) or close.
   superKey: () => {
     if (state.expanded) return setExpanded(false);
@@ -1370,6 +1402,27 @@ app.whenReady().then(() => {
   every(cfg.check_interval_seconds * 1000, check);
   let beat = 0; // open: every 1.5 s; collapsed (only the pill shows them): every 3 s
   every(1500, () => (state.expanded || ++beat % 2 === 0) && pushStats());
+  // What is playing: the music card on the closed bar (playing, or paused a moment ago)
+  let asking = false;
+  let lastPlaying = 0;
+  let lastCover = '';
+  every(2000, async () => {
+    if (asking || hideMode()) return;
+    asking = true;
+    const m = await nowplaying.nowPlaying().catch(() => null);
+    asking = false;
+    if (m?.status === 'Playing') lastPlaying = Date.now();
+    const card = cfg.music_card && !!m && Date.now() - lastPlaying < 20_000;
+    if (card !== !!state.mediaCard) {
+      state.mediaCard = card;
+      relayout();
+    }
+    if (!card && !state.expanded) return;
+    // the cover (a large data URL) only when it changes
+    const cover = m?.cover ?? '';
+    send('media', m && { ...m, cover: cover === lastCover ? undefined : cover, at: Date.now() });
+    lastCover = cover;
+  });
   sys.cpu(); // prime the CPU delta
   try {
     fs.writeFileSync(pidFile, `${process.pid}\n`);

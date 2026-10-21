@@ -15,6 +15,29 @@
       <span class="badge" id="badge"></span>
     </div>
 
+    <!-- Something playing, the desktop below: a small player (like a phone's lock screen). -->
+    <div class="music-view" id="music">
+      <div class="music-bg" id="music-bg"></div>
+      <div class="music-top">
+        <div class="music-cover" id="music-cover" data-i18n-title="music.open"></div>
+        <div class="music-meta" id="music-meta" data-i18n-title="music.open"><b id="music-title"></b><span id="music-artist"></span></div>
+        <button class="music-play" id="music-play"></button>
+      </div>
+      <div class="music-bottom">
+        <button class="music-btn" data-act="previous"><svg viewBox="0 0 24 24"><path d="M7 5.5h2v13H7zM19 5.5v13L10 12z"/></svg></button>
+        <div class="scrub" id="music-scrub">
+          <svg class="squiggle" id="music-squiggle" preserveAspectRatio="none"><path id="music-wave"/></svg>
+          <i class="rest" id="music-rest"></i>
+          <input type="range" id="music-pos" min="0" max="1000" value="0" step="1">
+        </div>
+        <button class="music-btn" data-act="next"><svg viewBox="0 0 24 24"><path d="M15 5.5h2v13h-2zM5 5.5v13l9-6.5z"/></svg></button>
+        <span class="music-vol" data-i18n-title="music.volume">
+          <svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="stroke" d="M15.5 9a4 4 0 0 1 0 6"/></svg>
+          <input type="range" id="music-volume" min="0" max="100" value="50">
+        </span>
+      </div>
+    </div>
+
     <!-- Expanded: tabs, then one of the views. -->
     <div class="panel-view">
       <div class="topbar">
@@ -38,6 +61,10 @@
           </button>
         </div>
         <div class="tools">
+          <button id="btn-notif" class="tool" data-view="notif" data-i18n-title="tool.notif">
+            <svg viewBox="0 0 24 24"><path d="M12 4a5 5 0 0 1 5 5v3.5l1.6 2.9a.7.7 0 0 1-.6 1.1H6a.7.7 0 0 1-.6-1.1L7 12.5V9a5 5 0 0 1 5-5zM10 18.5a2 2 0 0 0 4 0"/></svg>
+            <i class="count" id="notif-count"></i>
+          </button>
           <button id="btn-overview" class="tool" data-i18n-title="tool.overview">
             <svg viewBox="0 0 24 24"><rect class="stroke" x="3.5" y="5.5" width="7" height="6" rx="1.5"/><rect class="stroke" x="13.5" y="5.5" width="7" height="6" rx="1.5"/><rect class="stroke" x="3.5" y="14.5" width="7" height="4.5" rx="1.5"/><rect class="stroke" x="13.5" y="14.5" width="7" height="4.5" rx="1.5"/></svg>
           </button>
@@ -83,6 +110,9 @@
                 <button data-p="claude">Claude</button><button data-p="gemini">Gemini</button><button data-p="ollama" data-i18n="provider.local"></button>
               </div>
             </div>
+            <button class="switch" data-pref="music_card" role="switch" aria-checked="false">
+              <i></i><span data-i18n="pref.music_card"></span>
+            </button>
             <button class="switch" data-pref="hide_in_games" role="switch" aria-checked="false" data-i18n-title="pref.games_tip">
               <i></i><span data-i18n="pref.games"></span>
             </button>
@@ -129,6 +159,17 @@
             </div>
           </div>
           <div class="task-list" id="task-list"></div>
+        </div>
+      </div>
+
+      <div class="wide view-notif">
+        <div class="card content">
+          <div class="content-head">
+            <span class="label" data-i18n="notif.title"></span>
+            <button class="link small" id="notif-dnd"></button>
+            <button class="link small" id="notif-clear" data-i18n="notif.clear"></button>
+          </div>
+          <div class="notif-list" id="notif-list"></div>
         </div>
       </div>
 

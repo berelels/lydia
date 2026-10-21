@@ -206,6 +206,12 @@ class X11Desktop {
     return false;
   }
 
+  notifications(cb) {
+    cb(null); // only the GNOME helper can read them
+  }
+
+  notification() {}
+
   /** GNOME on X11 without the helper: the overview is the Super key. */
   overview() {
     execFile('xdotool', ['key', 'super'], { timeout: 1000 }, () => {});

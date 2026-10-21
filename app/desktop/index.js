@@ -26,6 +26,10 @@ class NoDesktop {
   overview() {
     return false;
   }
+  notifications(cb) {
+    cb(null);
+  }
+  notification() {}
   focusSelf(win) {
     win.focus();
     win.webContents.focus();

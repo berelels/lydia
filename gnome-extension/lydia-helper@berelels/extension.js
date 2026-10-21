@@ -5,7 +5,8 @@
 // It can also hide the top panel while Lydia runs (she takes its place, the
 // overview included), and
 // hand her the Super key (it opens her instead of the overview); both come
-// back as soon as Lydia stops calling.
+// back as soon as Lydia stops calling. And it lists the system's notifications
+// (WhatsApp, Discord...) for her bell, to open or dismiss them.
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 import Gio from 'gi://Gio';
@@ -40,6 +41,16 @@ const IFACE = `
       <arg type="b" name="mine" direction="in"/>
     </method>
     <method name="Overview"/>
+    <method name="Notifications">
+      <arg type="s" name="json" direction="out"/>
+    </method>
+    <method name="ActivateNotification">
+      <arg type="u" name="id" direction="in"/>
+    </method>
+    <method name="DismissNotification">
+      <arg type="u" name="id" direction="in"/>
+    </method>
+    <signal name="NotificationsChanged"/>
     <signal name="Super"/>
     <signal name="Pointer">
       <arg type="i" name="x"/>
@@ -54,7 +65,7 @@ const IFACE = `
   </interface>
 </node>`;
 
-const VERSION = 3;
+const VERSION = 4;
 const KEEPALIVE_MS = 15000; // Lydia calls Watch every 5 s; silent this long, she is gone
 const POINTER_MS = 50;
 const WINDOWS_MS = 700; // moves and resizes have no cheap global signal
@@ -76,9 +87,21 @@ export default class LydiaHelper extends Extension {
     this._wantSuper = false;
     this._superId = 0; // our overlay-key handler while the Super key is Lydia's
     this._refitId = 0; // waiting for the work area to change (see _refitAfter)
+    // notifications: each gets a number Lydia can name it by
+    this._notifs = new Map(); // id -> notification
+    this._notifIds = new WeakMap(); // notification -> id
+    this._nextNotif = 1;
+    const changed = () => this._dbus?.emit_signal('NotificationsChanged', null);
+    const watchSource = (src) => src.connectObject('notification-added', changed, 'notification-removed', changed, this);
+    Main.messageTray.getSources().forEach(watchSource);
+    Main.messageTray.connectObject('source-added', (_t, src) => (watchSource(src), changed()), 'source-removed', changed, this);
   }
 
   disable() {
+    Main.messageTray.disconnectObject(this);
+    Main.messageTray.getSources().forEach((src) => src.disconnectObject(this));
+    this._notifs.forEach((n) => n.disconnectObject(this));
+    this._notifs.clear();
     if (this._refitId) global.display.disconnect(this._refitId);
     this._refitId = 0;
     this._wantHidden = false;
@@ -118,6 +141,40 @@ export default class LydiaHelper extends Extension {
   /** Lydia's "workspaces" button. */
   Overview() {
     Main.overview.toggle();
+  }
+
+  /** The notifications in the tray, newest first, as JSON (non-ASCII escaped, so gdbus prints it plainly). */
+  Notifications() {
+    const iconOf = (g) => (g instanceof Gio.ThemedIcon ? g.get_names()[0] : g instanceof Gio.FileIcon ? g.get_file().get_path() : '');
+    const list = [];
+    for (const src of Main.messageTray.getSources()) {
+      for (const n of src.notifications) {
+        if (!this._notifIds.has(n)) {
+          const id = this._nextNotif++;
+          this._notifIds.set(n, id);
+          this._notifs.set(id, n);
+          n.connectObject('destroy', () => this._notifs.delete(id), this);
+        }
+        list.push({
+          id: this._notifIds.get(n),
+          app: src.title ?? '',
+          title: n.title ?? '',
+          body: n.body ?? '',
+          time: n.datetime ? n.datetime.to_unix() * 1000 : 0,
+          icon: iconOf(n.gicon) || iconOf(src.icon),
+        });
+      }
+    }
+    list.sort((a, b) => b.time - a.time);
+    return JSON.stringify(list).replace(/[\u007f-\uffff]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+  }
+
+  ActivateNotification(id) {
+    this._notifs.get(id)?.activate();
+  }
+
+  DismissNotification(id) {
+    this._notifs.get(id)?.destroy();
   }
 
   ActiveWindow() {
@@ -195,6 +252,25 @@ export default class LydiaHelper extends Extension {
       return;
     }
     box.visible = !hide;
+  }
+
+  _applySuper() {
+    const mine = this._wantSuper && Date.now() <= this._until;
+    if (mine === !!this._superId) return;
+    const d = global.display;
+    try {
+      if (mine) {
+        // the shell's own handler (the overview) is held back while ours answers
+        GObject.signal_handlers_block_matched(d, { signalId: 'overlay-key' });
+        this._superId = d.connect('overlay-key', () => this._dbus?.emit_signal('Super', null));
+      } else {
+        d.disconnect(this._superId);
+        this._superId = 0;
+        GObject.signal_handlers_unblock_matched(d, { signalId: 'overlay-key' });
+      }
+    } catch (e) {
+      logError(e, 'Lydia helper: Super key');
+    }
   }
 
   /** The primary monitor's work area now. */

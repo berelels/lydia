@@ -2,7 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('lydia', {
   on: (channel, fn) => {
-    if (['state', 'stats', 'cursor', 'geometry', 'accent', 'layout', 'prefs', 'chat', 'view', 'voice', 'chat-voice', 'voice-install', 'clip-changed'].includes(channel)) {
+    if (['state', 'stats', 'cursor', 'geometry', 'accent', 'layout', 'prefs', 'chat', 'view', 'voice', 'chat-voice', 'voice-install', 'clip-changed', 'notif-changed', 'media'].includes(channel)) {
       ipcRenderer.on(channel, (_e, payload) => fn(payload));
     }
   },
@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('lydia', {
   setPref: (key, value) => ipcRenderer.send('set-pref', key, value),
   setView: (view) => ipcRenderer.send('view', view),
   collapse: () => ipcRenderer.send('collapse'),
+  open: (view) => ipcRenderer.send('open', view),
   hover: (on) => ipcRenderer.send('hover', on),
   voiceToggle: () => ipcRenderer.send('voice-toggle'),
   ws: (action, args) => ipcRenderer.invoke('ws', action, args),

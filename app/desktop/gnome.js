@@ -43,6 +43,7 @@ class GnomeDesktop {
         if (m) pointer = { x: Number(m[1]), y: Number(m[2]) };
         // /lydia/Desktop: lydia.Desktop.Super ()
         if (/\.Super \(\)/.test(line)) this.events.superKey();
+        if (/\.NotificationsChanged \(\)/.test(line)) this.events.notifications?.();
         // /lydia/Desktop: lydia.Desktop.Windows (true, 'steam_app_620', uint32 4242, false)
         m = /\.Windows \((true|false), '((?:[^'\\]|\\.)*)', (?:uint32 )?(\d+), (true|false)\)/.exec(line);
         if (m) {
@@ -87,6 +88,25 @@ class GnomeDesktop {
     this.superMine = mine;
     call('SetSuper', [mine ? 'true' : 'false']);
     return !mine || this.version >= 3;
+  }
+
+  /** The system's notifications (WhatsApp, Discord...): cb(list | null). */
+  notifications(cb) {
+    if (this.version < 4) return cb(null);
+    call('Notifications', [], (err, out) => {
+      // ('[{"id":1,...}]',)  (GVariant text: \\ and \' escaped)
+      const m = /^\('(.*)',\)\s*$/s.exec(out);
+      if (err || !m) return cb(null);
+      try {
+        cb(JSON.parse(m[1].replace(/\\(.)/g, '$1')));
+      } catch {
+        cb(null);
+      }
+    });
+  }
+
+  notification(id, action) {
+    if (this.version >= 4 && Number.isInteger(id)) call(action === 'open' ? 'ActivateNotification' : 'DismissNotification', [id]);
   }
 
   overview() {

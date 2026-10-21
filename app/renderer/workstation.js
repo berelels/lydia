@@ -377,7 +377,7 @@ function renderWall() {
   $('wall-strip').innerHTML = !wall.dir
     ? `<div class="muted empty">${esc(t('wall.none'))}</div>`
     : wall.items.length
-      ? wall.items.map((w, i) => `<button class="wall ${i === wallFocus() ? 'on' : ''} ${w.file === wall.current ? 'current' : ''}" data-file="${esc(w.file)}" title="${esc(w.name)}">${w.thumb ? `<img src="${w.thumb}" alt="">` : ''}</button>`).join('')
+      ? wall.items.map((w, i) => `<button class="wall ${i === wallFocus() ? 'on' : ''} ${w.file === wall.current ? 'current' : ''}" data-file="${esc(w.file)}" data-flag="${esc(t('wall.current'))}" title="${esc(w.name)}">${w.thumb ? `<img src="${w.thumb}" alt="">` : ''}</button>`).join('')
       : `<div class="muted empty">${esc(t('wall.empty'))}</div>`;
   $('wall-strip').querySelector('.on')?.scrollIntoView({ inline: 'center', block: 'nearest' });
 }
@@ -434,9 +434,164 @@ $('power-confirm').addEventListener('click', (e) => {
   else $('power-confirm').hidden = true;
 });
 
+// ---------- Notifications (the system's, through the GNOME helper) ----------
+
+let notifs = null;
+let notifDnd = null;
+const plainText = (html) => {
+  const d = document.createElement('div');
+  d.innerHTML = String(html).replace(/<[^>]*>/g, ' '); // markup out, entities decoded
+  return d.textContent.replace(/\s+/g, ' ').trim();
+};
+function ago(ms) {
+  const min = Math.round((Date.now() - ms) / 60_000);
+  if (min < 1) return t('notif.now');
+  if (min < 60) return t('notif.min', { n: min });
+  if (min < 48 * 60) return t('notif.hour', { n: Math.round(min / 60) });
+  return new Intl.DateTimeFormat(i18n.htmlLang(), { day: 'numeric', month: 'short' }).format(ms);
+}
+function renderNotifCount() {
+  const n = notifs?.length ?? 0;
+  $('notif-count').textContent = n > 9 ? '9+' : n || '';
+  $('btn-notif').classList.toggle('has', n > 0);
+}
+function renderNotifs() {
+  renderNotifCount();
+  $('notif-dnd').textContent = notifDnd === null ? '' : t(notifDnd ? 'notif.dnd_on' : 'notif.dnd_off');
+  $('notif-clear').hidden = !notifs?.length;
+  if (notifs === null) return ($('notif-list').innerHTML = `<div class="muted empty">${esc(t('notif.unavailable'))}</div>`);
+  if (!notifs.length) return ($('notif-list').innerHTML = `<div class="muted empty">${esc(t('notif.empty'))}</div>`);
+  $('notif-list').innerHTML = notifs
+    .map(
+      (n) => `<div class="notif" data-id="${n.id}">
+      ${n.icon ? `<img src="${n.icon}" alt="">` : `<i class="notif-ico">${esc((n.app || '?')[0])}</i>`}
+      <div class="notif-text"><small>${esc(n.app)}${n.time ? ` · ${esc(ago(n.time))}` : ''}</small><b>${esc(plainText(n.title))}</b><span>${esc(plainText(n.body))}</span></div>
+      <button class="x" data-do="dismiss">${icon('close')}</button></div>`,
+    )
+    .join('');
+  // the stagger index for the entrance animation (an inline style="" would be blocked by the CSP)
+  $('notif-list').querySelectorAll('.notif').forEach((el, i) => el.style.setProperty('--i', i));
+}
+async function loadNotifs() {
+  notifs = await ws('notif.get');
+  renderNotifs();
+}
+$('notif-list').addEventListener('click', async (e) => {
+  const item = e.target.closest('.notif');
+  if (!item) return;
+  const id = Number(item.dataset.id);
+  if (e.target.closest('[data-do="dismiss"]')) {
+    item.classList.add('leaving'); // slides away, then the list is read again
+    await ws('notif.dismiss', { id });
+    setTimeout(loadNotifs, 220);
+  } else ws('notif.open', { id });
+});
+$('notif-clear').addEventListener('click', async () => {
+  $('notif-list').querySelectorAll('.notif').forEach((el) => el.classList.add('leaving'));
+  await ws('notif.clear', { ids: (notifs ?? []).map((n) => n.id) });
+  setTimeout(loadNotifs, 260);
+});
+$('notif-dnd').addEventListener('click', async () => {
+  const c = await ws('controls.set', { what: 'dnd', value: !notifDnd });
+  notifDnd = c?.dnd ?? notifDnd;
+  renderNotifs();
+});
+window.lydia.on('notif-changed', () => (island.dataset.view === 'notif' && state.expanded ? loadNotifs() : ws('notif.get').then((l) => ((notifs = l), renderNotifCount()))));
+setTimeout(() => ws('notif.get').then((l) => ((notifs = l), renderNotifCount())), 3000); // the bell's count from the start
+
+// ---------- the music card on the closed bar ----------
+
+let music = null; // the last report from main (the cover kept: it only comes when it changes)
+let musicCover = '';
+let seeking = false;
+let volTimer = 0;
+const PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+const PAUSE = '<svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>';
+
+/** Where the song is now: the last report plus the time since, while it plays. */
+const musicPos = () => (music ? Math.min(music.length || Infinity, music.position + (music.status === 'Playing' ? (Date.now() - music.at) / 1000 : 0)) : 0);
+
+function renderMusic() {
+  if (!music) return;
+  $('music-title').textContent = music.title || music.identity || music.app;
+  $('music-artist').textContent = music.artist || music.identity || music.app;
+  const url = musicCover ? `url("${musicCover}")` : '';
+  $('music-cover').style.backgroundImage = url;
+  $('music-bg').style.backgroundImage = url;
+  $('music').classList.toggle('no-cover', !musicCover);
+  $('music-play').innerHTML = music.status === 'Playing' ? PAUSE : PLAY;
+  $('music').classList.toggle('playing', music.status === 'Playing');
+  $('music-scrub').classList.toggle('off', !music.length || !music.canSeek);
+  const v = $('music-volume');
+  v.parentElement.hidden = music.volume == null;
+  if (music.volume != null && document.activeElement !== v) {
+    v.value = music.volume;
+    v.style.setProperty('--v', `${music.volume}%`);
+  }
+}
+let waveFor = 0; // the bar width the wave was drawn for
+function tickMusic() {
+  if (!music || !island.classList.contains('music') || seeking) return;
+  if ($('music-scrub').clientWidth !== waveFor) drawWave(); // first time shown (hidden, it has no width)
+  const frac = music.length ? Math.min(1, musicPos() / music.length) : 0;
+  $('music-pos').value = Math.round(frac * 1000);
+  $('music-scrub').style.setProperty('--f', frac.toFixed(4));
+}
+setInterval(tickMusic, 250);
+
+/** The wavy line (like a phone's player): a long repeating wave, clipped to the part already played. */
+function drawWave() {
+  waveFor = $('music-scrub').clientWidth;
+  const w = waveFor + 40;
+  let d = 'M0 6';
+  for (let x = 0; x < w; x += 16) d += ` q4 -5 8 0 t8 0`;
+  $('music-wave').setAttribute('d', d);
+  $('music-squiggle').setAttribute('viewBox', `0 0 ${w} 12`);
+  $('music-squiggle').style.width = `${w}px`;
+}
+
+window.lydia.on('media', (m) => {
+  if (!m) return void (music = null);
+  if (m.cover !== undefined) musicCover = m.cover;
+  music = m;
+  renderMusic();
+  tickMusic();
+});
+
+async function musicDo(action) {
+  if (!music) return;
+  const m = await ws('media.do', { player: music.player, action });
+  if (m) {
+    musicCover = m.cover || musicCover;
+    music = { ...m, at: Date.now() };
+    renderMusic();
+  }
+}
+$('music-play').addEventListener('click', () => musicDo('toggle'));
+for (const b of $('music').querySelectorAll('.music-btn')) b.addEventListener('click', () => musicDo(b.dataset.act));
+$('music-pos').addEventListener('input', (e) => {
+  seeking = true;
+  $('music-scrub').style.setProperty('--f', (e.target.value / 1000).toFixed(4));
+});
+$('music-pos').addEventListener('change', async (e) => {
+  if (!music?.length) return void (seeking = false);
+  const seconds = (e.target.value / 1000) * music.length;
+  music = { ...music, position: seconds, at: Date.now() };
+  await ws('media.seek', { player: music.player, trackId: music.trackId, seconds });
+  seeking = false;
+});
+$('music-volume').addEventListener('input', (e) => {
+  const value = Number(e.target.value);
+  e.target.style.setProperty('--v', `${value}%`);
+  clearTimeout(volTimer);
+  volTimer = setTimeout(() => music && ws('media.volume', { player: music.player, value }), 60);
+});
+for (const id of ['music-cover', 'music-meta']) $(id).addEventListener('click', () => window.lydia.open('controls'));
+
 // ---------- switching ----------
 
 const LOADERS = {
+  notif: [async () => (notifDnd === null && (notifDnd = (await ws('controls.get'))?.dnd ?? null), loadNotifs()), 0],
   controls: [loadControls, 2500],
   today: [loadToday, 1000],
   tasks: [loadSystem, 30_000],
