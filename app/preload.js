@@ -9,7 +9,6 @@ contextBridge.exposeInMainWorld('lydia', {
   menu: () => ipcRenderer.send('menu'),
   editMenu: () => ipcRenderer.send('edit-menu'),
   clipboardText: () => ipcRenderer.invoke('clipboard-text'),
-  togglePause: () => ipcRenderer.send('toggle-pause'),
   action: (id) => ipcRenderer.send('action', id),
   setLook: (look) => ipcRenderer.send('set-look', look),
   setPref: (key, value) => ipcRenderer.send('set-pref', key, value),

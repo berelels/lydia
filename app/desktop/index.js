@@ -17,6 +17,9 @@ class NoDesktop {
     cb(null);
   }
   activate() {}
+  setPanel() {
+    return false; // only the GNOME helper can
+  }
   focusSelf(win) {
     win.focus();
     win.webContents.focus();

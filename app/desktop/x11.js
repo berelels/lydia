@@ -198,6 +198,10 @@ class X11Desktop {
     execFile('xdotool', ['windowactivate', String(id)], { timeout: 1000 }, () => {});
   }
 
+  setPanel() {
+    return false; // only the GNOME helper can
+  }
+
   /** Lydia takes the keyboard herself (X11 lets a window ask). */
   focusSelf(win) {
     win.focus();

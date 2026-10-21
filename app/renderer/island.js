@@ -41,8 +41,6 @@ function render() {
   island.classList.toggle('expanded', state.expanded);
   island.classList.toggle('alert', alerting);
   island.classList.toggle('paused', state.paused);
-  $('btn-pause').classList.toggle('on', state.paused);
-  $('btn-pause').title = t(state.paused ? 'tool.resume' : 'tool.pause');
 
   const now = $('feed-2');
   now.classList.toggle('alert', alerting);
@@ -74,10 +72,12 @@ function statusLine() {
   return t('status.calm');
 }
 
-function chip(id, percent, text, hot) {
+/** One ring of the System tab: percent, the big number, a line below. */
+function gauge(id, percent, text, sub, hot) {
   const el = $(id);
   el.querySelector('.ring').style.setProperty('--p', Math.max(0, Math.min(100, percent)).toFixed(1));
   el.querySelector('b').textContent = text;
+  el.querySelector('small').textContent = sub;
   el.classList.toggle('hot', hot);
 }
 
@@ -96,20 +96,11 @@ function metrics() {
 function renderStats() {
   const { ram, cpu, disk, temp, threshold } = stats;
   renderPill(false);
-  if (!state.expanded) return; // the panel is hidden: skip ring animations
-  $('cpu-mini').textContent = `${fmt(ram.usedGB)} / ${fmt(ram.totalGB)} GB`;
-  chip('chip-ram', ram.percent, `${Math.round(ram.percent)}%`, ram.percent >= threshold);
-  chip('chip-cpu', cpu, `${Math.round(cpu)}%`, cpu >= 90);
-  chip('chip-disk', disk.percent, `${Math.round(disk.percent)}%`, disk.percent >= 92);
-  // The ring follows whichever is closer to its limit.
-  const c = temp.cpu ?? 0;
-  const g = temp.gpu ?? 0;
-  const ring = Math.max(((c - 30) / 65) * 100, ((g - 30) / 70) * 100);
-  const el = $('chip-temp');
-  el.querySelector('.ring').style.setProperty('--p', Math.max(0, Math.min(100, ring)).toFixed(1));
-  $('t-cpu').textContent = `CPU ${temp.cpu == null ? '--' : Math.round(temp.cpu) + '°'}`;
-  $('t-gpu').textContent = `GPU ${temp.gpu == null ? '--' : Math.round(temp.gpu) + '°'}`;
-  el.classList.toggle('hot', c >= 85 || g >= 90);
+  if (!state.expanded || island.dataset.view !== 'tasks') return; // not on screen: skip ring animations
+  const temps = [temp.cpu != null && `${Math.round(temp.cpu)}°`, temp.gpu != null && `GPU ${Math.round(temp.gpu)}°`].filter(Boolean).join(' · ');
+  gauge('g-cpu', cpu, `${Math.round(cpu)}%`, temps, cpu >= 90 || (temp.cpu ?? 0) >= 85 || (temp.gpu ?? 0) >= 90);
+  gauge('g-ram', ram.percent, `${Math.round(ram.percent)}%`, `${fmt(ram.usedGB)} / ${fmt(ram.totalGB)} GB`, ram.percent >= threshold);
+  gauge('g-disk', disk.percent, `${Math.round(disk.percent)}%`, t('metric.free', { n: fmt(Math.round(disk.freeGB)) }), disk.percent >= 92);
 }
 
 // ---------- collapsed pill: cycles RAM → CPU → Disco → Temp ----------
@@ -272,9 +263,13 @@ scheduleActivity(rand(20_000, 40_000));
 
 window.lydia.on('state', (s) => {
   const opened = s.expanded && !state.expanded;
-  if (!s.expanded && state.expanded) setView('home'); // open again on the main view
   const kind = s.notice?.kind;
   const newNotice = kind && kind !== state.notice?.kind;
+  // A notice or a problem shows on the home view (it opens the island for it);
+  // when it's over, or the island closes, back to the last tab.
+  const telling = s.notice || s.issue || badges.chat;
+  if (newNotice || (s.issue && !state.issue)) setView('home');
+  else if ((!s.expanded && state.expanded) || (!telling && island.dataset.view === 'home')) setView(telling ? 'home' : lastTab);
   state = s;
   if (s.issue || s.paused) stopActivityQuietly();
   syncMusic();
@@ -293,8 +288,6 @@ window.lydia.on('geometry', (g) => {
   const css = document.documentElement.style;
   css.setProperty('--pill-w', `${g.pill.w}px`);
   css.setProperty('--pill-h', `${g.pill.h}px`);
-  css.setProperty('--panel-w', `${g.panel.w}px`);
-  css.setProperty('--panel-h', `${g.panel.h}px`);
   css.setProperty('--mini-w', `${g.mini.w}px`);
   css.setProperty('--lip-w', `${g.lip.w}px`);
   css.setProperty('--lip-h', `${g.lip.h}px`);
@@ -327,6 +320,7 @@ window.lydia.on('prefs', (p) => {
     translatePage();
   }
   for (const b of document.querySelectorAll('#default-provider button')) b.classList.toggle('on', b.dataset.p === p.chat_provider);
+  document.querySelector('.switch[data-pref="hide_gnome_panel"]').hidden = !p.panelOk; // only with the GNOME helper
   for (const sw of document.querySelectorAll('.switch[data-pref]')) {
     sw.classList.toggle('on', !!p[sw.dataset.pref]);
     sw.setAttribute('aria-checked', String(!!p[sw.dataset.pref]));
@@ -415,6 +409,11 @@ function applyLook(l) {
   s.setProperty('--b2', mix(look.body, '#000000', 0.3));
   s.setProperty('--b3', mix(look.body, '#000000', 0.58));
   s.setProperty('--eye-user', look.eye);
+  // her color is the island's accent (the active tab, switches, sliders), with a readable ink on it
+  const css = document.documentElement.style;
+  css.setProperty('--lav', mix(look.body, '#ffffff', 0.12));
+  const [r, g, b] = hex(look.body);
+  css.setProperty('--lav-ink', 0.299 * r + 0.587 * g + 0.114 * b > 160 ? '#111' : '#fff');
   markSwatches();
 }
 
@@ -463,12 +462,16 @@ applyLook(DEFAULT);
 // ---------- views and input ----------
 
 // Same heights as VIEW_H in main.js (it shapes the clickable area from them).
-const VIEW_H = { home: 200, look: 380, tasks: 330, chat: 440, setup: 440, controls: 330, today: 380, clip: 380, apps: 380, wall: 300, power: 230 };
+const VIEW_H = { home: 170, look: 410, tasks: 330, chat: 440, setup: 440, controls: 300, today: 300, clip: 380, apps: 380, wall: 250, power: 170 };
+const VIEW_W = { home: 660, look: 720, tasks: 780, chat: 720, setup: 720, controls: 680, today: 780, clip: 660, apps: 700, wall: 780, power: 660 };
+let lastTab = 'controls'; // opening again (with nothing to tell) goes back to it
 function setView(view, tell = true) {
   if (!(view in VIEW_H)) return;
   const was = island.dataset.view;
   island.dataset.view = view;
+  if (document.querySelector(`.tabs .tab[data-view="${view}"]`)) lastTab = view;
   document.documentElement.style.setProperty('--panel-h', `${VIEW_H[view]}px`);
+  document.documentElement.style.setProperty('--panel-w', `${VIEW_W[view]}px`);
   for (const el of document.querySelectorAll('.tab[data-view]')) el.classList.toggle('active', el.dataset.view === view);
   if (tell && view !== was) window.lydia.setView(view);
   if (view === 'tasks') startTasks();
@@ -590,7 +593,6 @@ for (const b of document.querySelectorAll('#tasks-sort button')) {
     loadTasks();
   });
 }
-$('open-tasks').addEventListener('click', () => setView('tasks'));
 
 // ---------- music ----------
 
@@ -1060,7 +1062,6 @@ orb.addEventListener('click', () => smile(1200));
 // Where the desktop can't report the pointer (Wayland with no helper), hover comes from here.
 island.addEventListener('mouseenter', () => window.lydia.hover(true));
 island.addEventListener('mouseleave', () => window.lydia.hover(false));
-$('btn-pause').addEventListener('click', () => window.lydia.togglePause());
 $('btn-mic').addEventListener('click', () => window.lydia.voiceToggle());
 
 // ---------- voice: listening, thinking, speaking ----------
@@ -1089,4 +1090,4 @@ window.lydia.on('chat-voice', ({ text }) => {
 $('btn-menu').addEventListener('click', () => window.lydia.menu());
 
 translatePage();
-setView('home', false);
+setView('controls', false);

@@ -189,7 +189,16 @@ function renderTimer() {
   }
 }
 
+function renderClock() {
+  const now = new Date();
+  const lang = i18n.htmlLang();
+  $('clock-time').textContent = new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit' }).format(now);
+  $('clock-day').textContent = new Intl.DateTimeFormat(lang, { weekday: 'long' }).format(now);
+  $('clock-date').textContent = new Intl.DateTimeFormat(lang, { day: 'numeric', month: 'long' }).format(now);
+}
+
 async function loadToday() {
+  renderClock();
   const [list, end] = await Promise.all([ws('tasks.get'), ws('timer.get')]);
   todos = list ?? [];
   timerEnd = end ?? 0;
@@ -242,7 +251,7 @@ async function loadSystem() {
   if (!s) return;
   const h = Math.floor(s.uptime / 3600);
   const m = Math.floor((s.uptime % 3600) / 60);
-  $('sys-up').textContent = t('sys.uptime', { time: h ? `${h}h ${m}min` : `${m} min` });
+  $('sys-up').textContent = h ? `${h}h ${m}min` : `${m} min`;
 }
 $('sys-speed').addEventListener('click', async () => {
   const b = $('sys-speed');
@@ -251,7 +260,8 @@ $('sys-speed').addEventListener('click', async () => {
   b.textContent = t('sys.testing');
   const r = await ws('stats.speed');
   b.disabled = false;
-  b.textContent = r?.mbps ? `↓ ${fmt(r.mbps)} Mbit/s` : t('sys.speed_fail');
+  b.textContent = t('sys.speed');
+  $('sys-net').textContent = r?.mbps ? `${fmt(r.mbps)} Mbit/s` : t('sys.speed_fail');
 });
 
 // ---------- Clipboard ----------
@@ -339,15 +349,20 @@ $('app-grid').addEventListener('contextmenu', async (e) => {
 // ---------- Wallpaper ----------
 
 let wall = null;
+// the big one in the middle: the wallpaper in use if it is in this folder, else the newest
+const wallFocus = () => Math.max(0, wall.items.findIndex((w) => w.file === wall.current));
 
 function renderWall() {
   if (!wall) return;
-  $('wall-dir').textContent = wall.dir ? wall.dir.replace(/^\/home\/[^/]+/, '~') : '';
+  $('wall-dir').textContent = wall.dir ? wall.dir.split('/').filter(Boolean).pop() : '';
+  $('wall-dir').title = wall.dir;
+  $('wall-count').textContent = wall.dir ? t('wall.count', { n: wall.items.length }) : '';
   $('wall-strip').innerHTML = !wall.dir
     ? `<div class="muted empty">${esc(t('wall.none'))}</div>`
     : wall.items.length
-      ? wall.items.map((w) => `<button class="wall ${w.file === wall.current ? 'on' : ''}" data-file="${esc(w.file)}" title="${esc(w.name)}">${w.thumb ? `<img src="${w.thumb}" alt="">` : ''}</button>`).join('')
+      ? wall.items.map((w, i) => `<button class="wall ${i === wallFocus() ? 'on' : ''} ${w.file === wall.current ? 'current' : ''}" data-file="${esc(w.file)}" title="${esc(w.name)}">${w.thumb ? `<img src="${w.thumb}" alt="">` : ''}</button>`).join('')
       : `<div class="muted empty">${esc(t('wall.empty'))}</div>`;
+  $('wall-strip').querySelector('.on')?.scrollIntoView({ inline: 'center', block: 'nearest' });
 }
 async function loadWall() {
   wall = (await ws('wall.get')) ?? wall;
@@ -413,7 +428,12 @@ const LOADERS = {
   wall: [loadWall, 0],
 };
 // Today's countdown ticks without asking main each second
-const TICKERS = { today: () => (timerEnd > Date.now() || $('timers').querySelector('.timer-left') ? renderTimer() : null) };
+const TICKERS = {
+  today: () => {
+    renderClock();
+    if (timerEnd > Date.now() || $('timers').querySelector('.timer-left')) renderTimer();
+  },
+};
 
 window.addEventListener('lydia-view', (e) => {
   const { view, was } = e.detail;

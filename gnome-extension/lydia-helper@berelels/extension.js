@@ -2,6 +2,8 @@
 // X11): where the pointer is, whether a window is fullscreen on the primary
 // monitor (and which), and whether one reaches the strip below the top panel.
 // Exposed on the session bus as lydia.Desktop. Idle unless Lydia keeps calling Watch.
+// It can also hide the top panel while Lydia runs (she takes its place); it
+// comes back in the overview, and for good as soon as Lydia stops calling.
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import Meta from 'gi://Meta';
@@ -28,6 +30,9 @@ const IFACE = `
       <arg type="t" name="id" direction="in"/>
     </method>
     <method name="FocusSelf"/>
+    <method name="SetPanel">
+      <arg type="b" name="hidden" direction="in"/>
+    </method>
     <signal name="Pointer">
       <arg type="i" name="x"/>
       <arg type="i" name="y"/>
@@ -41,7 +46,7 @@ const IFACE = `
   </interface>
 </node>`;
 
-const VERSION = 1;
+const VERSION = 2;
 const KEEPALIVE_MS = 15000; // Lydia calls Watch every 5 s; silent this long, she is gone
 const POINTER_MS = 50;
 const WINDOWS_MS = 700; // moves and resizes have no cheap global signal
@@ -58,9 +63,18 @@ export default class LydiaHelper extends Extension {
     this._last = { pointer: '', windows: '' };
     this._signals = [];
     this._timers = [];
+    this._wantHidden = false;
+    this._panelHidden = false;
+    this._overview = [
+      Main.overview.connect('showing', () => this._panelHidden && Main.layoutManager.panelBox.show()),
+      Main.overview.connect('hiding', () => this._panelHidden && Main.layoutManager.panelBox.hide()),
+    ];
   }
 
   disable() {
+    this._wantHidden = false;
+    this._applyPanel();
+    for (const id of this._overview) Main.overview.disconnect(id);
     this._sleep();
     Gio.bus_unown_name(this._owner);
     this._dbus.unexport();
@@ -77,6 +91,12 @@ export default class LydiaHelper extends Extension {
     this._last.windows = ''; // a (re)connected Lydia gets the current state at once
     this._windows();
     return VERSION;
+  }
+
+  /** Hide the top panel (its space too) while Lydia keeps calling Watch. */
+  SetPanel(hidden) {
+    this._wantHidden = hidden;
+    this._applyPanel();
   }
 
   ActiveWindow() {
@@ -121,6 +141,7 @@ export default class LydiaHelper extends Extension {
   _tick() {
     if (Date.now() > this._until) {
       this._sleep();
+      this._applyPanel(); // Lydia is gone: the panel comes back
       return GLib.SOURCE_REMOVE;
     }
     const [x, y] = global.get_pointer();
@@ -130,6 +151,26 @@ export default class LydiaHelper extends Extension {
       this._dbus.emit_signal('Pointer', new GLib.Variant('(ii)', [x, y]));
     }
     return GLib.SOURCE_CONTINUE;
+  }
+
+  _applyPanel() {
+    const hide = this._wantHidden && Date.now() <= this._until;
+    if (hide === this._panelHidden) return;
+    this._panelHidden = hide;
+    const lm = Main.layoutManager;
+    const box = lm.panelBox;
+    // tracked again without struts: windows (and the work area) take its space
+    try {
+      lm.removeChrome(box);
+      lm.addChrome(box, { affectsStruts: !hide, trackFullscreen: true });
+    } catch (e) {
+      logError(e, 'Lydia helper: panel');
+      if (!box.get_parent()) lm.addChrome(box, { affectsStruts: true, trackFullscreen: true }); // never lose the panel
+      this._panelHidden = false;
+      box.show();
+      return;
+    }
+    box.visible = !hide || Main.overview.visible;
   }
 
   _self() {

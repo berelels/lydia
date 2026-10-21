@@ -17,46 +17,21 @@
     <div class="panel-view">
       <div class="topbar">
         <div class="tabs">
-          <button class="tab active" data-view="home" data-i18n-title="tab.home">
-            <svg viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5h-5v5H5a1 1 0 0 1-1-1z"/></svg>
-          </button>
-          <button class="tab" data-view="controls" data-i18n-title="tab.controls">
-            <svg viewBox="0 0 24 24"><path class="stroke" d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle class="stroke" cx="16" cy="7" r="2"/><circle class="stroke" cx="10" cy="17" r="2"/></svg>
-          </button>
-          <button class="tab" data-view="today" data-i18n-title="tab.today">
-            <svg viewBox="0 0 24 24"><rect class="stroke" x="4" y="5.5" width="16" height="14" rx="2.5"/><path class="stroke" d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg>
-          </button>
-          <button class="tab" data-view="tasks" data-i18n-title="tab.stats">
-            <svg viewBox="0 0 24 24"><path class="stroke" d="M5 19V11M10 19V6M15 19v-5M20 19V9"/></svg>
-          </button>
-          <button class="tab" data-view="clip" data-i18n-title="tab.clip">
-            <svg viewBox="0 0 24 24"><rect class="stroke" x="5.5" y="5" width="13" height="15" rx="2"/><path class="stroke" d="M9 5V3.8h6V5M9 10h6M9 14h4"/></svg>
-          </button>
-          <button class="tab" data-view="apps" data-i18n-title="tab.apps">
-            <svg viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="6" height="6" rx="1.6"/><rect x="13.5" y="4.5" width="6" height="6" rx="1.6"/><rect x="4.5" y="13.5" width="6" height="6" rx="1.6"/><rect x="13.5" y="13.5" width="6" height="6" rx="1.6"/></svg>
-          </button>
-          <button class="tab" data-view="wall" data-i18n-title="tab.wall">
-            <svg viewBox="0 0 24 24"><rect class="stroke" x="3.5" y="5" width="17" height="14" rx="2.5"/><path class="stroke" d="M6 17l4.5-5 3 3 2-2L19 17"/><circle cx="15.5" cy="9" r="1.5"/></svg>
-          </button>
-          <button class="tab" data-view="power" data-i18n-title="tab.power">
-            <svg viewBox="0 0 24 24"><path class="stroke" d="M12 4v7M7.5 7a7 7 0 1 0 9 0"/></svg>
-          </button>
-          <button class="tab" data-view="chat" data-i18n-title="tab.chat">
-            <svg viewBox="0 0 24 24"><path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-7l-4 3.5V16H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg>
-          </button>
-          <button class="tab" data-view="look" data-i18n-title="tab.look">
-            <svg viewBox="0 0 24 24"><path d="M12 4a8 8 0 1 0 0 16c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1.1 0-.9.7-1.6 1.6-1.6H16a4 4 0 0 0 4-4C20 7 16.4 4 12 4zm-4.5 8a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm2.5-3.4a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm4 0a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm2.5 3.4a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6z"/></svg>
-          </button>
+          <button class="tab" data-view="controls" data-i18n="tabs.controls" data-i18n-title="tab.controls"></button>
+          <button class="tab" data-view="today" data-i18n="tabs.today" data-i18n-title="tab.today"></button>
+          <button class="tab" data-view="tasks" data-i18n="tabs.stats" data-i18n-title="tab.stats"></button>
+          <button class="tab" data-view="clip" data-i18n="tabs.clip" data-i18n-title="tab.clip"></button>
+          <button class="tab" data-view="apps" data-i18n="tabs.apps" data-i18n-title="tab.apps"></button>
+          <button class="tab" data-view="wall" data-i18n="tabs.wall" data-i18n-title="tab.wall"></button>
+          <button class="tab" data-view="power" data-i18n="tabs.power" data-i18n-title="tab.power"></button>
+          <button class="tab" data-view="chat" data-i18n="tabs.chat" data-i18n-title="tab.chat"></button>
+          <button class="tab" data-view="look" data-i18n="tabs.look" data-i18n-title="tab.look"></button>
         </div>
         <div class="tools">
-          <span id="cpu-mini"></span>
-          <button id="btn-mic" class="tab" data-i18n-title="voice.mic_tip">
+          <button id="btn-mic" class="tool" data-i18n-title="voice.mic_tip">
             <svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path class="stroke" d="M6.5 11.5a5.5 5.5 0 0 0 11 0M12 17v3.5"/></svg>
           </button>
-          <button id="btn-pause" class="tab">
-            <svg viewBox="0 0 24 24"><path d="M12 4a5 5 0 0 1 5 5v3.5l1.6 2.9a.7.7 0 0 1-.6 1.1H6a.7.7 0 0 1-.6-1.1L7 12.5V9a5 5 0 0 1 5-5zM10 18.5a2 2 0 0 0 4 0"/></svg>
-          </button>
-          <button id="btn-menu" class="tab" data-i18n-title="tool.menu">
+          <button id="btn-menu" class="tool" data-i18n-title="tool.menu">
             <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/></svg>
           </button>
         </div>
@@ -89,17 +64,6 @@
           </div>
         </div>
         <div class="card side">
-          <div class="view-home">
-            <div class="side-title"><span data-i18n="sys.title"></span>
-              <button class="link small" id="open-tasks" data-i18n="sys.tasks"></button>
-            </div>
-            <div class="chips">
-              <div class="chip" data-hue="lav" id="chip-ram"><i class="ring"></i><span>RAM</span><b></b></div>
-              <div class="chip" data-hue="teal" id="chip-cpu"><i class="ring"></i><span>CPU</span><b></b></div>
-              <div class="chip" data-hue="amber" id="chip-disk"><i class="ring"></i><span data-i18n="metric.disk"></span><b></b></div>
-              <div class="chip temp" data-hue="coral" id="chip-temp"><i class="ring"></i><span data-i18n="metric.temp"></span><b><em id="t-cpu">CPU --</em><em id="t-gpu">GPU --</em></b></div>
-            </div>
-          </div>
           <div class="view-look">
             <div class="side-title" data-i18n="idle.title"></div>
             <div class="play">
@@ -131,17 +95,28 @@
             <button class="switch" data-pref="voice_cloud" role="switch" aria-checked="false" data-i18n-title="pref.voice_cloud_tip">
               <i></i><span data-i18n="pref.voice_cloud"></span>
             </button>
+            <button class="switch" data-pref="hide_gnome_panel" role="switch" aria-checked="false" data-i18n-title="pref.hide_panel_tip" hidden>
+              <i></i><span data-i18n="pref.hide_panel"></span>
+            </button>
           </div>
         </div>
       </div>
-      <!-- views with a narrow rail for Lydia on the left -->
+      <!-- the workstation views: full width, sized per view (VIEW_W / VIEW_H) -->
       <div class="wide view-tasks">
-        <div class="rail"></div>
+        <div class="stats-left">
+          <div class="gauges">
+            <div class="card gauge" id="g-cpu"><i class="ring big"></i><b></b><span>CPU</span><small></small></div>
+            <div class="card gauge" id="g-ram"><i class="ring big"></i><b></b><span>RAM</span><small></small></div>
+            <div class="card gauge" id="g-disk"><i class="ring big"></i><b></b><span data-i18n="metric.disk"></span><small></small></div>
+          </div>
+          <div class="stat-row">
+            <div class="card stat"><span class="label" data-i18n="sys.up_label"></span><b id="sys-up"></b></div>
+            <div class="card stat"><span class="label" data-i18n="sys.net_label"></span><b id="sys-net">—</b><button class="s-btn" id="sys-speed" data-i18n="sys.speed"></button></div>
+          </div>
+        </div>
         <div class="card content">
           <div class="content-head">
-            <b data-i18n="tasks.title"></b>
-            <span class="muted" id="sys-up"></span>
-            <button class="link small" id="sys-speed" data-i18n="sys.speed"></button>
+            <span class="label" data-i18n="sys.top"></span>
             <div class="seg" id="tasks-sort">
               <button data-by="cpu" class="on">CPU</button><button data-by="ram" data-i18n="tasks.memory"></button>
             </div>
@@ -151,35 +126,36 @@
       </div>
 
       <div class="wide view-controls">
-        <div class="rail"></div>
         <div class="card content">
           <div class="ctl-grid" id="ctl-grid"></div>
           <div class="ctl-sliders" id="ctl-sliders"></div>
-          <div class="player" id="player"></div>
         </div>
+        <div class="card player" id="player"></div>
       </div>
 
       <div class="wide view-today">
-        <div class="rail"></div>
+        <div class="card clock-card">
+          <b id="clock-time"></b>
+          <span id="clock-day"></span>
+          <small id="clock-date"></small>
+        </div>
         <div class="card content">
+          <span class="label" data-i18n="today.week"></span>
           <div class="week" id="week"></div>
+          <div class="timers" id="timers"></div>
+        </div>
+        <div class="card content">
+          <span class="label" data-i18n="today.title"></span>
+          <div class="todo" id="todo"></div>
           <form class="task-form" id="task-form">
             <input id="task-text" autocomplete="off" data-i18n-ph="today.add_ph">
             <input id="task-time" type="time" data-i18n-title="today.time_tip">
-            <button type="submit" class="s-btn" data-i18n="today.add"></button>
+            <button type="submit" class="add" data-i18n-title="today.add">+</button>
           </form>
-          <div class="todo" id="todo"></div>
-          <div class="timers" id="timers">
-            <span class="muted" data-i18n="today.timer"></span>
-            <button class="s-btn plain" data-min="5">5 min</button>
-            <button class="s-btn plain" data-min="15">15 min</button>
-            <button class="s-btn plain" data-min="25">25 min</button>
-          </div>
         </div>
       </div>
 
       <div class="wide view-clip">
-        <div class="rail"></div>
         <div class="card content">
           <div class="content-head">
             <input class="search" id="clip-search" autocomplete="off" data-i18n-ph="clip.search">
@@ -191,7 +167,6 @@
       </div>
 
       <div class="wide view-apps">
-        <div class="rail"></div>
         <div class="card content">
           <div class="content-head"><input class="search" id="app-search" autocomplete="off" data-i18n-ph="apps.search"></div>
           <div class="app-grid" id="app-grid"></div>
@@ -199,15 +174,13 @@
       </div>
 
       <div class="wide view-wall">
-        <div class="rail"></div>
         <div class="card content">
-          <div class="content-head"><b id="wall-dir"></b><button class="link small" id="wall-pick" data-i18n="wall.pick"></button></div>
+          <div class="content-head"><span class="pill-tag" id="wall-dir"></span><span class="muted" id="wall-count"></span><button class="tool" id="wall-pick" data-i18n-title="wall.pick"><svg viewBox="0 0 24 24"><path class="stroke" d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg></button></div>
           <div class="wall-strip" id="wall-strip"></div>
         </div>
       </div>
 
       <div class="wide view-power">
-        <div class="rail"></div>
         <div class="card content">
           <div class="power-grid" id="power-grid">
             <button data-p="lock"><svg viewBox="0 0 24 24"><rect class="stroke" x="5.5" y="10.5" width="13" height="9" rx="2"/><path class="stroke" d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg><span data-i18n="power.lock"></span></button>
@@ -221,7 +194,6 @@
       </div>
 
       <div class="wide view-chat">
-        <div class="rail"></div>
         <div class="card content chat">
           <div class="content-head">
             <span class="ghost-tag" data-i18n-title="chat.temp_tip">
@@ -255,7 +227,6 @@
       </div>
 
       <div class="wide view-setup">
-        <div class="rail"></div>
         <div class="card content setup">
           <div class="setup-head">
             <div class="dots" id="setup-dots"></div>

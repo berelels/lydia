@@ -36,7 +36,7 @@ if (process.env.WAYLAND_DISPLAY && !process.argv.some((a) => a.startsWith('--ozo
 // very top of the screen (see-through over the panel), the island grows and
 // slides inside it, and the X11 input shape follows, so the rest stays click-through.
 const GEOM = {
-  winW: 760,
+  winW: 840,
   winH: 480, // below the panel: room for the tallest view
   pill: { w: 210, h: 38 }, // hanging from the panel when nothing is below it
   // A window right below the panel (a maximized browser's address bar): just a
@@ -44,11 +44,12 @@ const GEOM = {
   // window, so she can't live inside it.)
   lip: { w: 64, h: 7 },
   mini: { w: 64, h: 24 }, // fullscreen: just her eyes peeking from the top edge
-  panel: { w: 720, h: 200 }, // h follows the open view, see VIEW_H
+  panel: { w: 720, h: 200 }, // w and h follow the open view, see VIEW_W / VIEW_H
   glow: 24, // room for the shadow around the visible island
 };
-// Height of the open panel for each view (the renderer uses the same numbers).
-const VIEW_H = { home: 200, look: 380, tasks: 330, chat: 440, setup: 440, controls: 330, today: 380, clip: 380, apps: 380, wall: 300, power: 230 };
+// Size of the open panel for each view (the renderer uses the same numbers).
+const VIEW_H = { home: 170, look: 410, tasks: 330, chat: 440, setup: 440, controls: 300, today: 300, clip: 380, apps: 380, wall: 250, power: 170 };
+const VIEW_W = { home: 660, look: 720, tasks: 780, chat: 720, setup: 720, controls: 680, today: 780, clip: 660, apps: 700, wall: 780, power: 660 };
 const HOVER_IN_MS = 90;
 const HOVER_IN_FULLSCREEN_MS = 350; // reaching for a video's controls shouldn't pop her open
 const HOVER_OUT_MS = 450;
@@ -86,7 +87,7 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.exit(0);
 
 function islandRect(kind) {
-  const { w } = GEOM[kind];
+  const w = kind === 'panel' ? VIEW_W[state.view] ?? GEOM.panel.w : GEOM[kind].w;
   const h = kind === 'panel' ? VIEW_H[state.view] ?? GEOM.panel.h : GEOM[kind].h;
   return { x: Math.round((GEOM.winW - w) / 2), y: kind === 'panel' ? layout.topOpen : layout.top, width: w, height: h };
 }
@@ -122,8 +123,8 @@ function place() {
 const gameMode = () => state.game && cfg.hide_in_games;
 // Out of sight: a Steam game (with peeks) or any other fullscreen, like a video (without).
 const hideMode = () => gameMode() || (state.fullscreen && !state.game && cfg.hide_in_fullscreen);
-const PREFS = ['hide_in_games', 'hide_in_fullscreen', 'chat_provider', 'language', 'voice_followup', 'voice_cloud'];
-const prefs = () => ({ ...Object.fromEntries(PREFS.map((k) => [k, cfg[k]])), lang: i18n.lang() });
+const PREFS = ['hide_in_games', 'hide_in_fullscreen', 'chat_provider', 'language', 'voice_followup', 'voice_cloud', 'hide_gnome_panel'];
+const prefs = () => ({ ...Object.fromEntries(PREFS.map((k) => [k, cfg[k]])), lang: i18n.lang(), panelOk: desktop?.name === 'gnome' });
 
 /** "system" follows the desktop's language; pt, en and es pick one. */
 function applyLanguage() {
@@ -1175,7 +1176,6 @@ ipcMain.handle('tasks', (_e, by) => {
   return watch.hogs.tasks(by === 'ram' ? 'ram' : 'cpu', 8, mine).map(({ name, cpu, gb, pids, self, hot }) => ({ name, cpu, gb, count: pids.length, self, hot }));
 });
 ipcMain.handle('task-kill', (_e, name) => (typeof name === 'string' ? killApp(name) : { ok: false }));
-ipcMain.on('toggle-pause', togglePause);
 ipcMain.on('action', (_e, id) => typeof id === 'string' && runAction(id));
 ipcMain.on('set-pref', (_e, key, value) => {
   if (!PREFS.includes(key)) return;
@@ -1185,6 +1185,10 @@ ipcMain.on('set-pref', (_e, key, value) => {
   try {
     config.save(key, value);
   } catch {}
+  if (key === 'hide_gnome_panel' && !desktop.setPanel(value) && desktop.name === 'gnome') {
+    // the shell still runs an older helper: put the new one in place; it loads when GNOME restarts
+    setup.installExtension().then(() => notify('info', t('panel.restart'), [t('panel.restart_hint')], 15));
+  }
   if (key === 'language') {
     applyLanguage();
     pushState(); // issues and buttons are written in main
@@ -1247,7 +1251,7 @@ let themeWatcher = null;
 
 // ---------- the desktop: pointer, fullscreen windows, a window below the panel ----------
 
-let desktop = { name: 'starting', hasPointer: false, activeWindow: (cb) => cb(null), activate() {}, focusSelf: (w) => w.focus(), stop() {} };
+let desktop = { name: 'starting', hasPointer: false, activeWindow: (cb) => cb(null), activate() {}, setPanel: () => false, focusSelf: (w) => w.focus(), stop() {} };
 let ownXid = 0;
 const desktopCtx = {
   primary: () => screen.getPrimaryDisplay().bounds,
@@ -1285,7 +1289,9 @@ function startDesktop() {
     desktop = d;
     console.log(`[lydia] desktop: ${d.name}`);
     d.start();
+    if (cfg.hide_gnome_panel) d.setPanel(true);
     if (alive()) applyShape(); // with no pointer source the pill takes the mouse itself
+    send('prefs', prefs()); // now it is known whether the panel can be hidden
   });
 }
 

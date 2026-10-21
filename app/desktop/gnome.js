@@ -23,6 +23,8 @@ class GnomeDesktop {
     this.hasPointer = true;
     this.monitor = null;
     this.timer = 0;
+    this.panelHidden = false;
+    this.version = 0; // of the extension running in the shell (Watch says it)
   }
 
   start() {
@@ -50,7 +52,10 @@ class GnomeDesktop {
     });
     const watch = () => {
       const z = this.ctx.zone();
-      call('Watch', [process.pid, Math.round(z.x), Math.round(z.y), Math.round(z.width), Math.round(z.height)]);
+      call('Watch', [process.pid, Math.round(z.x), Math.round(z.y), Math.round(z.width), Math.round(z.height)], (err, out) => {
+        if (!err) this.version = Number(/uint32 (\d+)/.exec(out)?.[1]) || this.version;
+      });
+      if (this.panelHidden) call('SetPanel', ['true']); // again: the extension may have been reloaded
     };
     // The monitor needs a moment to subscribe before the first Watch makes the extension report.
     setTimeout(watch, 300);
@@ -58,8 +63,16 @@ class GnomeDesktop {
   }
 
   stop() {
+    if (this.panelHidden) call('SetPanel', ['false']); // back at once, not when the extension notices she's gone
     clearInterval(this.timer);
     this.monitor?.kill();
+  }
+
+  /** Hide GNOME's top panel while she runs (the extension brings it back when she stops). */
+  setPanel(hidden) {
+    this.panelHidden = hidden;
+    call('SetPanel', [hidden ? 'true' : 'false']);
+    return !hidden || this.version >= 2; // older helpers don't know how (yet: the shell runs the old copy until it restarts)
   }
 
   activeWindow(cb) {

@@ -21,6 +21,8 @@ const DEFAULTS = {
   hide_in_games: false,
   // Any other fullscreen (a video...): vanish too, no peeks. Alerts still slide in.
   hide_in_fullscreen: false,
+  // GNOME: hide the top panel while Lydia runs (she sits at the very top instead). Needs the helper extension.
+  hide_gnome_panel: false,
   // Who answers in the chat: "claude" (the claude CLI and its login), "gemini"
   // (a Google AI Studio key, kept encrypted by the system keyring) or "ollama" (local).
   chat_provider: 'claude',
