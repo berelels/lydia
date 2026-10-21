@@ -195,6 +195,9 @@ window.lydia.on('prefs', (p) => {
   island.dataset.bar = p.bar_content;
   for (const b of document.querySelectorAll('#bar-content button')) b.classList.toggle('on', b.dataset.v === p.bar_content);
   document.querySelector('.switch[data-pref="super_opens"]').hidden = !p.panelOk;
+  $('super-tab-row').hidden = !p.panelOk || !p.super_opens;
+  const tabs = [...document.querySelectorAll('.tabs .tab[data-view]')].map((b) => ({ id: b.dataset.view, label: t(b.dataset.i18nTitle) }));
+  fillSelect($('super-tab'), [{ id: 'last', label: t('pref.super_last') }, ...tabs], p.super_tab);
   if (p.lang !== i18n.lang()) {
     i18n.setLang(p.lang);
     translatePage();
@@ -306,7 +309,7 @@ applyAccent(DEFAULT_ACCENT);
 // ---------- views and input ----------
 
 // Same heights as VIEW_H in main.js (it shapes the clickable area from them).
-const VIEW_H = { home: 170, look: 410, tasks: 330, chat: 440, setup: 440, controls: 320, today: 300, clip: 380, apps: 380, wall: 250, power: 170 };
+const VIEW_H = { home: 170, look: 450, tasks: 330, chat: 440, setup: 440, controls: 320, today: 300, clip: 380, apps: 380, wall: 250, power: 170 };
 const VIEW_W = { home: 660, look: 720, tasks: 780, chat: 780, setup: 720, controls: 680, today: 780, clip: 660, apps: 700, wall: 780, power: 660 };
 let lastTab = 'controls'; // opening again (with nothing to tell) goes back to it
 function setView(view, tell = true) {
@@ -339,6 +342,7 @@ for (const b of document.querySelectorAll('#default-provider button')) {
 for (const b of document.querySelectorAll('#bar-content button')) {
   b.addEventListener('click', () => window.lydia.setPref('bar_content', b.dataset.v));
 }
+$('super-tab').addEventListener('change', (e) => window.lydia.setPref('super_tab', e.target.value));
 $('btn-overview').addEventListener('click', () => window.lydia.ws('sys.overview'));
 $('btn-settings').addEventListener('click', () => window.lydia.ws('sys.settings'));
 

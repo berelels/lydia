@@ -47,7 +47,7 @@ const GEOM = {
   glow: 24, // room for the shadow around the visible island
 };
 // Size of the open panel for each view (the renderer uses the same numbers).
-const VIEW_H = { home: 170, look: 410, tasks: 330, chat: 440, setup: 440, controls: 320, today: 300, clip: 380, apps: 380, wall: 250, power: 170 };
+const VIEW_H = { home: 170, look: 450, tasks: 330, chat: 440, setup: 440, controls: 320, today: 300, clip: 380, apps: 380, wall: 250, power: 170 };
 const VIEW_W = { home: 660, look: 720, tasks: 780, chat: 780, setup: 720, controls: 680, today: 780, clip: 660, apps: 700, wall: 780, power: 660 };
 const HOVER_IN_MS = 90;
 const HOVER_IN_FULLSCREEN_MS = 350; // reaching for a video's controls shouldn't pop her open
@@ -122,7 +122,7 @@ function place() {
 const gameMode = () => state.game && cfg.hide_in_games;
 // Out of sight: a Steam game (with peeks) or any other fullscreen, like a video (without).
 const hideMode = () => gameMode() || (state.fullscreen && !state.game && cfg.hide_in_fullscreen);
-const PREFS = ['hide_in_games', 'hide_in_fullscreen', 'chat_provider', 'language', 'voice_followup', 'voice_cloud', 'hide_gnome_panel', 'super_opens', 'bar_content'];
+const PREFS = ['hide_in_games', 'hide_in_fullscreen', 'chat_provider', 'language', 'voice_followup', 'voice_cloud', 'hide_gnome_panel', 'super_opens', 'super_tab', 'bar_content'];
 const prefs = () => ({ ...Object.fromEntries(PREFS.map((k) => [k, cfg[k]])), lang: i18n.lang(), panelOk: desktop?.name === 'gnome' });
 
 /** "system" follows the desktop's language; pt, en and es pick one. */
@@ -1177,7 +1177,7 @@ ipcMain.handle('task-kill', (_e, name) => (typeof name === 'string' ? killApp(na
 ipcMain.on('action', (_e, id) => typeof id === 'string' && runAction(id));
 ipcMain.on('set-pref', (_e, key, value) => {
   if (!PREFS.includes(key)) return;
-  const valid = { chat_provider: ['claude', 'gemini', 'ollama'], language: ['system', ...i18n.LANGS], bar_content: ['info', 'clock', 'both'] }[key];
+  const valid = { chat_provider: ['claude', 'gemini', 'ollama'], language: ['system', ...i18n.LANGS], bar_content: ['info', 'clock', 'both'], super_tab: ['last', 'controls', 'today', 'tasks', 'clip', 'apps', 'wall', 'power', 'chat', 'look'] }[key];
   if (valid ? !valid.includes(value) : typeof value !== 'boolean') return;
   cfg[key] = value;
   try {
@@ -1265,6 +1265,10 @@ const desktopEvents = {
   superKey: () => {
     if (state.expanded) return setExpanded(false);
     if (layout.hidden) return;
+    if (cfg.super_tab !== 'last' && cfg.super_tab in VIEW_H) {
+      state.view = cfg.super_tab;
+      send('view', cfg.super_tab);
+    }
     setExpanded(true);
     state.byKey = true;
     takeFocus();

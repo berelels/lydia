@@ -29,18 +29,20 @@
           <button class="tab" data-view="chat" data-i18n-title="tab.chat"><svg viewBox="0 0 24 24"><path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-7l-4 3.5V16H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
           <button class="tab" data-view="look" data-i18n-title="tab.look"><svg viewBox="0 0 24 24"><path d="M12 4a8 8 0 1 0 0 16c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1.1 0-.9.7-1.6 1.6-1.6H16a4 4 0 0 0 4-4C20 7 16.4 4 12 4zm-4.5 8a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm2.5-3.4a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm4 0a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm2.5 3.4a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6z"/></svg></button>
         </div>
+        <div class="tools left">
+          <button id="btn-mic" class="tool" data-i18n-title="voice.mic_tip">
+            <svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path class="stroke" d="M6.5 11.5a5.5 5.5 0 0 0 11 0M12 17v3.5"/></svg>
+          </button>
+          <button id="btn-menu" class="tool" data-i18n-title="tool.menu">
+            <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/></svg>
+          </button>
+        </div>
         <div class="tools">
           <button id="btn-overview" class="tool" data-i18n-title="tool.overview">
             <svg viewBox="0 0 24 24"><rect class="stroke" x="3.5" y="5.5" width="7" height="6" rx="1.5"/><rect class="stroke" x="13.5" y="5.5" width="7" height="6" rx="1.5"/><rect class="stroke" x="3.5" y="14.5" width="7" height="4.5" rx="1.5"/><rect class="stroke" x="13.5" y="14.5" width="7" height="4.5" rx="1.5"/></svg>
           </button>
           <button id="btn-settings" class="tool" data-i18n-title="tool.settings">
             <svg viewBox="0 0 24 24"><circle class="stroke" cx="12" cy="12" r="3"/><path class="stroke" d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M6 18l1.6-1.6M16.4 7.6 18 6"/></svg>
-          </button>
-          <button id="btn-mic" class="tool" data-i18n-title="voice.mic_tip">
-            <svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path class="stroke" d="M6.5 11.5a5.5 5.5 0 0 0 11 0M12 17v3.5"/></svg>
-          </button>
-          <button id="btn-menu" class="tool" data-i18n-title="tool.menu">
-            <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/></svg>
           </button>
         </div>
       </div>
@@ -99,6 +101,10 @@
             <button class="switch" data-pref="super_opens" role="switch" aria-checked="false" data-i18n-title="pref.super_tip" hidden>
               <i></i><span data-i18n="pref.super"></span>
             </button>
+            <div class="pref-row" id="super-tab-row" hidden>
+              <span data-i18n="pref.super_tab"></span>
+              <select class="pick" id="super-tab"></select>
+            </div>
           </div>
         </div>
       </div>

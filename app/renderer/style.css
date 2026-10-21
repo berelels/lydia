@@ -149,7 +149,8 @@ html, body {
 
 .topbar { position: relative; display: flex; justify-content: center; align-items: center; height: 28px; margin-bottom: 10px; }
 .tabs, .tools { display: flex; gap: 2px; align-items: center; }
-.tools { position: absolute; right: 0; top: 0; height: 28px; }
+.tools { position: absolute; right: 0; top: 0; height: 28px; gap: 4px; }
+.tools.left { left: 0; right: auto; }
 
 .tab {
   display: grid;
@@ -724,3 +725,4 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14p
 @keyframes blinkdot { 0%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-30%); } }
 @keyframes chatter { 0%, 100% { scale: 1 1; } 30% { scale: 1.06 .74; } 60% { scale: .97 1.05; } }
 @keyframes voice { 0%, 100% { transform: scaleY(.3); } 50% { transform: scaleY(1); } }
+.pref-row[hidden] { display: none; }

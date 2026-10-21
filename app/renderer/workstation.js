@@ -327,7 +327,14 @@ function renderApps() {
   if (!appData) return;
   const q = $('app-search').value.trim().toLowerCase();
   const cell = (a) => `<button class="app" data-id="${esc(a.id)}" title="${esc(a.name)} · ${esc(t('apps.fav_tip'))}">${a.icon ? `<img src="${a.icon}" alt="">` : `<i>${esc(a.name[0] ?? '?')}</i>`}<span>${esc(a.name)}</span></button>`;
-  const all = appData.all.filter((a) => !q || a.name.toLowerCase().includes(q) || a.id.toLowerCase().includes(q));
+  // every word of the search (its start: "explorador" finds "explorar") in the name, the English name or the keywords
+  const plain = (x) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const words = plain(q).split(/\s+/).filter((w) => w.length > 2);
+  const all = appData.all.filter((a) => {
+    if (!q) return true;
+    const hay = plain(`${a.name} ${a.find}`);
+    return hay.includes(plain(q)) || (words.length && words.every((w) => hay.includes(w.slice(0, Math.max(3, Math.min(5, w.length))))));
+  });
   let html = '';
   if (!q && appData.favorites.length) html += `<div class="side-title">${esc(t('apps.favorites'))}</div><div class="apps fav">${appData.favorites.map(cell).join('')}</div><div class="side-title">${esc(t('apps.all'))}</div>`;
   html += all.length ? `<div class="apps">${all.map(cell).join('')}</div>` : `<div class="muted empty">${esc(t('apps.none'))}</div>`;
@@ -351,6 +358,7 @@ $('app-grid').addEventListener('contextmenu', async (e) => {
   const b = e.target.closest('.app');
   if (!b) return;
   e.preventDefault();
+  e.stopPropagation(); // favorite only: not Lydia's own menu too
   appData = (await ws('apps.favorite', { id: b.dataset.id })) ?? appData;
   renderApps();
 });

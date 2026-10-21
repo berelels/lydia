@@ -2,7 +2,8 @@ const { execFile, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { t } = require('../i18n');
+const i18n = require('../i18n');
+const { t } = i18n;
 const { normalize } = require('./intents');
 
 /**
@@ -121,6 +122,57 @@ const APP_DIRS = [
 ];
 let appCache = null;
 /** Installed apps: [{ id, name, names: [normalized names and keywords] }] */
+// ---------- app names in the user's language ----------
+// GNOME shows "Arquivos", not "Files": some .desktop files carry Name[pt_BR],
+// others (Ubuntu, Zorin) leave it to a gettext catalog named in
+// X-Ubuntu-Gettext-Domain / X-GNOME-Gettext-Domain. Those .mo files are read here.
+
+const LOCALES = { pt: ['pt_BR', 'pt'], es: ['es'], en: [] };
+const catalogs = new Map(); // "pt_BR/nautilus" -> Map(msgid -> msgstr) | null
+
+/** A compiled gettext catalog (.mo): just the msgid -> msgstr pairs. */
+function readMo(file) {
+  const b = fs.readFileSync(file);
+  const le = b.readUInt32LE(0) === 0x950412de;
+  const u32 = (o) => (le ? b.readUInt32LE(o) : b.readUInt32BE(o));
+  const n = u32(8);
+  const orig = u32(12);
+  const trans = u32(16);
+  const map = new Map();
+  for (let i = 0; i < n; i++) {
+    const id = b.toString('utf8', u32(orig + i * 8 + 4), u32(orig + i * 8 + 4) + u32(orig + i * 8));
+    const str = b.toString('utf8', u32(trans + i * 8 + 4), u32(trans + i * 8 + 4) + u32(trans + i * 8));
+    if (id && str) map.set(id, str.split('\0')[0]);
+  }
+  return map;
+}
+function catalog(locale, domain) {
+  const key = `${locale}/${domain}`;
+  if (!catalogs.has(key)) {
+    let map = null;
+    for (const base of ['/usr/share/locale-langpack', '/usr/share/locale']) {
+      try {
+        map = readMo(path.join(base, locale, 'LC_MESSAGES', `${domain}.mo`));
+        break;
+      } catch {}
+    }
+    catalogs.set(key, map);
+  }
+  return catalogs.get(key);
+}
+/** A .desktop key (Name, Keywords...) as GNOME would show it in the interface language. */
+function localized(get, key) {
+  const value = get(key);
+  const domain = get('X-GNOME-Gettext-Domain') || get('X-Ubuntu-Gettext-Domain');
+  for (const loc of LOCALES[i18n.lang()] ?? []) {
+    const own = get(`${key}[${loc}]`);
+    if (own) return own;
+    const tr = value && domain && /^[\w.-]+$/.test(domain) ? catalog(loc, domain)?.get(value) : null;
+    if (tr) return tr;
+  }
+  return value;
+}
+
 function apps() {
   if (appCache) return appCache;
   const seen = new Map();
@@ -146,13 +198,14 @@ function apps() {
         continue;
       }
       const name = get('Name');
-      const names = [name, get('Name[pt_BR]'), get('Name[pt]'), get('Name[es]'), get('GenericName'), get('GenericName[pt_BR]'), ...get('Keywords').split(';'), ...get('Keywords[pt_BR]').split(';'), f.replace(/\.desktop$/, '').split('.').pop()]
+      const label = localized(get, 'Name') || name;
+      const names = [name, label, ...localized(get, 'Keywords').split(';'), get('Name[pt_BR]'), get('Name[pt]'), get('Name[es]'), get('GenericName'), get('GenericName[pt_BR]'), ...get('Keywords').split(';'), ...get('Keywords[pt_BR]').split(';'), f.replace(/\.desktop$/, '').split('.').pop()]
         .map(normalize)
         .filter(Boolean);
       // The program it runs ("gnome-calculator", flatpak's --command=spotify), to find it among processes.
       const exec = get('Exec');
       const bin = /--command=(\S+)/.exec(exec)?.[1] ?? path.basename(exec.split(/\s+/)[0] ?? '');
-      seen.set(f, { id: f.replace(/\.desktop$/, ''), name, names, bin, iconName: get('Icon') });
+      seen.set(f, { id: f.replace(/\.desktop$/, ''), name, label, names, bin, iconName: get('Icon') });
     }
   }
   appCache = [...seen.values()].filter(Boolean);
