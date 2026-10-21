@@ -873,7 +873,7 @@ document.querySelector('.topbar').addEventListener('wheel', (e) => {
   e.preventDefault();
   if (Date.now() - wheelAt < 180) return;
   wheelAt = Date.now();
-  const tabs = [...document.querySelectorAll('.tabs .tab[data-view]')].map((x) => x.dataset.view);
+  const tabs = TAB_ORDER.map((x) => x.dataset.view); // the real order (the row is rearranged around the clock)
   const i = tabs.indexOf(island.dataset.view);
   const next = tabs[(Math.max(0, i) + (e.deltaY > 0 || e.deltaX > 0 ? 1 : -1) + tabs.length) % tabs.length];
   setView(next);

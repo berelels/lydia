@@ -449,4 +449,4 @@ function declarations() {
   }));
 }
 
-module.exports = { TOOLS, declarations, findApp, apps, volume, asUrl };
+module.exports = { TOOLS, declarations, findApp, apps, volume };

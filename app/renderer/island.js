@@ -208,7 +208,7 @@ window.lydia.on('prefs', (p) => {
   for (const b of document.querySelectorAll('#bar-content button')) b.classList.toggle('on', b.dataset.v === p.bar_content);
   document.querySelector('.switch[data-pref="super_opens"]').hidden = !p.panelOk;
   $('super-tab-row').hidden = !p.panelOk || !p.super_opens;
-  const tabs = [...document.querySelectorAll('.tabs .tab[data-view]')].map((b) => ({ id: b.dataset.view, label: t(b.dataset.i18nTitle) }));
+  const tabs = TAB_ORDER.map((b) => ({ id: b.dataset.view, label: t(b.dataset.i18nTitle) }));
   fillSelect($('super-tab'), [{ id: 'last', label: t('pref.super_last') }, { id: 'notif', label: t('tool.notif') }, ...tabs, { id: 'power', label: t('tab.power') }, { id: 'look', label: t('tool.settings') }], p.super_tab);
   if (p.lang !== i18n.lang()) {
     i18n.setLang(p.lang);
@@ -324,11 +324,21 @@ applyAccent(DEFAULT_ACCENT);
 const VIEW_H = { notif: 400, home: 170, look: 460, tasks: 330, chat: 440, setup: 440, controls: 320, today: 390, clip: 380, apps: 380, wall: 270, power: 170 };
 const VIEW_W = { notif: 560, home: 660, look: 720, tasks: 780, chat: 780, setup: 720, controls: 680, today: 780, clip: 660, apps: 700, wall: 780, power: 660 };
 let lastTab = 'controls'; // opening again (with nothing to tell) goes back to it
+// The tabs, in order. The one you are on leaves the row; the others are split
+// half and half around the clock, so it sits in the middle with as many on each side.
+const TAB_ORDER = [...document.querySelectorAll('.tabs .tab[data-view]')];
+function arrangeTabs(view) {
+  const shown = TAB_ORDER.filter((b) => b.dataset.view !== view);
+  const half = Math.ceil(shown.length / 2);
+  document.querySelector('.tabs-side.left').replaceChildren(...shown.slice(0, half));
+  document.querySelector('.tabs-side.right').replaceChildren(...shown.slice(half), ...TAB_ORDER.filter((b) => b.dataset.view === view));
+}
 function setView(view, tell = true) {
   if (!(view in VIEW_H)) return;
   const was = island.dataset.view;
   island.dataset.view = view;
   if (document.querySelector(`.tabs .tab[data-view="${view}"]`)) lastTab = view;
+  arrangeTabs(view);
   document.documentElement.style.setProperty('--panel-h', `${VIEW_H[view]}px`);
   document.documentElement.style.setProperty('--panel-w', `${VIEW_W[view]}px`);
   for (const el of document.querySelectorAll('.tab[data-view], .tool[data-view]')) el.classList.toggle('active', el.dataset.view === view);

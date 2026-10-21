@@ -16,9 +16,7 @@
       ].join(' '),
 
       // ---- page: tabs and tools ----
-      'tab.home': 'Início',
       'tab.chat': 'Conversar',
-      'tab.look': 'Aparência',
       'look.system_settings': 'Configurações do sistema',
       'ctl.devices': "Redes e aparelhos",
       'ctl.searching': "Procurando…",
@@ -130,7 +128,6 @@
       'today.timer': 'Timer:',
       'today.clear_done': 'Limpar feitas',
       'today.reminder': 'Lembrete: {text}',
-      'today.timer_done': 'O timer de {min} min acabou!',
       'today.timer_left': 'Timer: {left}',
       'today.cancel': 'Cancelar',
       'sys.speed': 'Testar velocidade',
@@ -195,7 +192,6 @@
       'pref.fullscreen_tip': 'Some em qualquer tela cheia, como um vídeo. Alertas importantes ainda aparecem.',
 
       // ---- task manager ----
-      'tasks.title': 'Gerenciador de tarefas',
       'tasks.memory': 'Memória',
       'tasks.app': 'Aplicativo',
       'tasks.kill': 'Encerrar',
@@ -436,9 +432,7 @@
         "Never say you changed, opened or did anything on the computer: if asked for an action, say you couldn't do it right now and they can try again.",
       ].join(' '),
 
-      'tab.home': 'Home',
       'tab.chat': 'Chat',
-      'tab.look': 'Appearance',
       'look.system_settings': 'System settings',
       'ctl.devices': "Networks and devices",
       'ctl.searching': "Searching…",
@@ -550,7 +544,6 @@
       'today.timer': 'Timer:',
       'today.clear_done': 'Clear done',
       'today.reminder': 'Reminder: {text}',
-      'today.timer_done': 'Your {min} min timer is up!',
       'today.timer_left': 'Timer: {left}',
       'today.cancel': 'Cancel',
       'sys.speed': 'Test speed',
@@ -612,7 +605,6 @@
       'pref.fullscreen': 'Hide in fullscreen videos',
       'pref.fullscreen_tip': 'Hides in any fullscreen, like a video. Important alerts still show up.',
 
-      'tasks.title': 'Task manager',
       'tasks.memory': 'Memory',
       'tasks.app': 'App',
       'tasks.kill': 'End',
@@ -849,9 +841,7 @@
         'Nunca digas que cambiaste, abriste o hiciste algo en la computadora: si te piden una acción, di que no pudiste hacerlo ahora y que pueden intentarlo de nuevo.',
       ].join(' '),
 
-      'tab.home': 'Inicio',
       'tab.chat': 'Conversar',
-      'tab.look': 'Apariencia',
       'look.system_settings': 'Configuración del sistema',
       'ctl.devices': "Redes y dispositivos",
       'ctl.searching': "Buscando…",
@@ -963,7 +953,6 @@
       'today.timer': 'Temporizador:',
       'today.clear_done': 'Limpiar hechas',
       'today.reminder': 'Recordatorio: {text}',
-      'today.timer_done': '¡Tu temporizador de {min} min terminó!',
       'today.timer_left': 'Temporizador: {left}',
       'today.cancel': 'Cancelar',
       'sys.speed': 'Probar velocidad',
@@ -1025,7 +1014,6 @@
       'pref.fullscreen': 'Ocultarse en pantalla completa',
       'pref.fullscreen_tip': 'Se oculta en cualquier pantalla completa, como un video. Las alertas importantes siguen apareciendo.',
 
-      'tasks.title': 'Administrador de tareas',
       'tasks.memory': 'Memoria',
       'tasks.app': 'Aplicación',
       'tasks.kill': 'Finalizar',

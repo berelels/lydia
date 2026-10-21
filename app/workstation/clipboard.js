@@ -98,4 +98,4 @@ function setPaused(v) {
   paused = !!v;
 }
 
-module.exports = { start, stop, list, use, put, pin, remove, clear, setPaused, isPaused: () => paused, SECRET };
+module.exports = { start, stop, list, use, put, pin, remove, clear, setPaused, isPaused: () => paused };

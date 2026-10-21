@@ -184,7 +184,6 @@ html, body {
 .tool:hover { background: rgba(var(--ov), .08); color: var(--ink); }
 .tool svg { width: 15px; height: 15px; fill: currentColor; }
 .tool svg .stroke { fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-#btn-pause.on { color: var(--amber); }
 
 .cards { display: flex; gap: 10px; height: calc(var(--panel-h) - 60px); }
 .card {
@@ -489,9 +488,6 @@ html, body {
 .s-section { padding: 10px 12px; border-radius: 14px; background: rgba(var(--ov), .03); border: 1px solid rgba(var(--ov), .06); margin-bottom: 10px; font-size: 12.5px; }
 .s-section > b { display: block; margin-bottom: 4px; font-weight: 600; }
 .s-section .switch { margin-top: 6px; }
-.diff { margin: 8px 0; max-height: 170px; overflow: auto; padding: 8px 10px; border-radius: 10px; background: var(--sunken); font: 11px/1.45 "JetBrains Mono", "Fira Code", monospace; white-space: pre-wrap; word-break: break-all; color: var(--mute); }
-.diff .add { color: #86efac; }
-.diff .del { color: #fca5a5; }
 .summary { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
 .summary li::before { content: "✓"; color: var(--teal); margin-right: 8px; }
 .summary li.off::before { content: "–"; color: var(--mute); }
@@ -540,13 +536,10 @@ input[type="range"] { flex: 1; -webkit-appearance: none; appearance: none; heigh
 input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .35); }
 .player { display: flex; align-items: center; gap: 12px; margin-top: auto; padding: 8px; border-radius: 16px; background: rgba(var(--ov), .04); min-height: 64px; }
 .player .cover { flex: none; width: 48px; height: 48px; border-radius: 10px; overflow: hidden; background: rgba(var(--ov), .08); }
-.player .cover img { width: 100%; height: 100%; object-fit: cover; }
 .player .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .player .meta b, .player .meta small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .player .meta b { font: 600 13px var(--font); }
 .player .meta small { font-size: 11.5px; color: var(--mute); }
-.player .bar { height: 3px; margin-top: 5px; border-radius: 2px; background: rgba(var(--ov), .12); overflow: hidden; }
-.player .bar i { display: block; height: 100%; background: var(--lav); }
 .player .time { font-variant-numeric: tabular-nums; font-size: 10.5px !important; }
 .player .buttons { display: flex; gap: 2px; }
 .player .buttons button { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 15px; background: none; color: var(--soft); cursor: pointer; }

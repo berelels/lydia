@@ -111,4 +111,4 @@ class Spectrum {
   }
 }
 
-module.exports = { Spectrum, bands, fft, RATE, SIZE };
+module.exports = { Spectrum, bands, RATE, SIZE };

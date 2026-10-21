@@ -113,4 +113,4 @@ function save(key, value) {
   fs.writeFileSync(file, JSON.stringify(user, null, 2) + '\n');
 }
 
-module.exports = { load, save, configPath, DEFAULTS };
+module.exports = { load, save, configPath };
