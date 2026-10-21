@@ -533,7 +533,7 @@ function bubble(cls, html) {
 function focusChat() {
   refreshProvider();
   window.lydia.chatFocus();
-  setTimeout(() => input.focus(), 60);
+  setTimeout(() => input.focus({ preventScroll: true }), 60);
 }
 function sendChat() {
   const text = input.value.trim();
@@ -589,8 +589,8 @@ for (const b of document.querySelectorAll('#chat-provider button')) {
   b.addEventListener('click', async () => {
     chatInfo = await window.lydia.chatProvider(b.dataset.p);
     renderProvider();
-    if (chatInfo.provider === 'gemini' && !chatInfo.geminiKey) $('gemini-key').focus();
-    else input.focus();
+    if (chatInfo.provider === 'gemini' && !chatInfo.geminiKey) $('gemini-key').focus({ preventScroll: true });
+    else input.focus({ preventScroll: true });
   });
 }
 $('keybox').addEventListener('submit', async (e) => {
@@ -601,7 +601,7 @@ $('keybox').addEventListener('submit', async (e) => {
   $('key-error').textContent = r.error ?? '';
   if (!r.error) {
     await refreshProvider();
-    input.focus();
+    input.focus({ preventScroll: true });
   }
 });
 $('gemini-key').addEventListener('mousedown', () => window.lydia.chatFocus());
@@ -613,7 +613,7 @@ $('paste-key').addEventListener('click', async () => {
 $('chat-model').addEventListener('change', async (e) => {
   chatInfo = await window.lydia.chatModel(e.target.value);
   renderProvider();
-  input.focus();
+  input.focus({ preventScroll: true });
 });
 $('get-key').addEventListener('click', () => window.lydia.openKeyPage());
 refreshProvider();
@@ -647,7 +647,7 @@ window.lydia.on('chat', (e) => {
       } else if (!raw) current.innerHTML = md(e.text);
     }
     current = null;
-    if (island.dataset.view === 'chat') input.focus();
+    if (island.dataset.view === 'chat') input.focus({ preventScroll: true });
   } else if (e.type === 'reset') {
     chatBusy = false;
     current = null;
@@ -809,7 +809,7 @@ function renderSetup() {
   const focused = document.activeElement?.id;
   $('setup-body').innerHTML = SETUP_VIEWS[step](setupInfo);
   if ($('s-key')) $('s-key').value = typed;
-  if (focused && $(focused)) $(focused).focus();
+  if (focused && $(focused)) $(focused).focus({ preventScroll: true });
 }
 
 function setupGo(delta) {
@@ -890,7 +890,7 @@ window.addEventListener('contextmenu', (e) => {
   e.preventDefault();
   if (e.target.closest('input, textarea')) {
     window.lydia.chatFocus(); // the edit menu needs the keyboard on this window
-    e.target.focus();
+    e.target.focus({ preventScroll: true });
     window.lydia.editMenu();
   } else window.lydia.menu();
 });

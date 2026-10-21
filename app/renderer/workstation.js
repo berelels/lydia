@@ -617,7 +617,7 @@ window.addEventListener('lydia-view', (e) => {
   load();
   if (view === 'today') wsTimer = setInterval(TICKERS.today, every);
   else if (every) wsTimer = setInterval(load, every);
-  if (view === 'apps' && view !== was) setTimeout(() => $('app-search').focus(), 60);
+  if (view === 'apps' && view !== was) setTimeout(() => $('app-search').focus({ preventScroll: true }), 60);
   if (view === 'clip' && view !== was) $('clip-search').value = '';
 });
 
