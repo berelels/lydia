@@ -463,7 +463,7 @@ applyLook(DEFAULT);
 // ---------- views and input ----------
 
 // Same heights as VIEW_H in main.js (it shapes the clickable area from them).
-const VIEW_H = { home: 200, look: 290, tasks: 330, chat: 440, setup: 440, controls: 330, today: 380, clip: 380, apps: 380, wall: 300, power: 230 };
+const VIEW_H = { home: 200, look: 380, tasks: 330, chat: 440, setup: 440, controls: 330, today: 380, clip: 380, apps: 380, wall: 300, power: 230 };
 function setView(view, tell = true) {
   if (!(view in VIEW_H)) return;
   const was = island.dataset.view;

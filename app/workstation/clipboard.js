@@ -79,6 +79,11 @@ function use(id) {
   items.sort((a, b) => b.at - a.at);
   return true;
 }
+/** New text on the clipboard (dictation where it can't be typed). */
+function put(text) {
+  helper?.stdin.write(JSON.stringify({ text }) + '\n');
+  return !!helper;
+}
 function pin(id) {
   const x = items.find((y) => y.id === id);
   if (x) x.pinned = !x.pinned;
@@ -93,4 +98,4 @@ function setPaused(v) {
   paused = !!v;
 }
 
-module.exports = { start, stop, list, use, pin, remove, clear, setPaused, isPaused: () => paused, SECRET };
+module.exports = { start, stop, list, use, put, pin, remove, clear, setPaused, isPaused: () => paused, SECRET };

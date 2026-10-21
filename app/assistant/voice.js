@@ -9,8 +9,10 @@ const path = require('path');
  *   until you stop talking; the audio never touches the disk except one
  *   temporary WAV in the RAM-backed runtime dir, deleted right after.
  * - transcribe(): whisper.cpp, if installed in ~/.local/share/lydia/voice.
- * - speak(): Kokoro, a natural female voice, if installed there (kokoro_server.py
- *   keeps it loaded). Without it she shows her answers instead of saying them.
+ * - speak(): a Gemini voice when main gave one (setCloud: it sounds the most
+ *   human), else Kokoro, a local female voice, if installed there
+ *   (kokoro_server.py keeps it loaded). Without either she shows her answers
+ *   instead of saying them.
  */
 
 const HOME = path.join(process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'), 'lydia', 'voice');
@@ -90,7 +92,7 @@ function listen({ onLevel = () => {}, max = 15_000, quietMs = 1100, waitMs = 600
   return { done, stop: () => stop() };
 }
 
-function wavHeader(dataLen) {
+function wavHeader(dataLen, rate = RATE) {
   const h = Buffer.alloc(44);
   h.write('RIFF', 0);
   h.writeUInt32LE(36 + dataLen, 4);
@@ -98,8 +100,8 @@ function wavHeader(dataLen) {
   h.writeUInt32LE(16, 16);
   h.writeUInt16LE(1, 20); // PCM
   h.writeUInt16LE(1, 22); // mono
-  h.writeUInt32LE(RATE, 24);
-  h.writeUInt32LE(RATE * 2, 28);
+  h.writeUInt32LE(rate, 24);
+  h.writeUInt32LE(rate * 2, 28);
   h.writeUInt16LE(2, 32);
   h.writeUInt16LE(16, 34);
   h.write('data', 36);
@@ -109,15 +111,18 @@ function wavHeader(dataLen) {
 
 // ---------- transcription ----------
 
-/** WAV -> text with whisper.cpp; the file is deleted either way. */
-function transcribe(file, lang = 'pt') {
+// Names whisper gets wrong without a hint ("espotifai", "a ce dece").
+const VOCABULARY = 'Lydia, Spotify, YouTube, Chrome, Brave, Firefox, VS Code, Discord, WhatsApp, Telegram, AC/DC, Wi-Fi, Bluetooth.';
+
+/** WAV -> text with whisper.cpp; the file is deleted either way. `prompt`: words to expect (false: none). */
+function transcribe(file, lang = 'pt', { prompt = VOCABULARY } = {}) {
   return new Promise((resolve) => {
     if (!can.hear()) {
       fs.rmSync(file, { force: true });
       return resolve({ error: 'no-stt' });
     }
     const threads = String(Math.max(2, Math.min(8, os.cpus().length - 2)));
-    execFile(paths.whisper, ['-m', paths.model, '-f', file, '-l', lang, '-t', threads, '-nt', '-np'], { timeout: 60_000, maxBuffer: 1 << 20 }, (err, out) => {
+    execFile(paths.whisper, ['-m', paths.model, '-f', file, '-l', lang, '-t', threads, '-nt', '-np', ...(prompt ? ['--prompt', prompt] : [])], { timeout: 60_000, maxBuffer: 1 << 20 }, (err, out) => {
       fs.rmSync(file, { force: true });
       if (err) return resolve({ error: 'stt-failed' });
       const text = String(out).replace(/\[[^\]]*\]|\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim(); // drop "[Música]", "(risos)"
@@ -189,15 +194,50 @@ const play = (wav) =>
     });
   });
 
+/** Raw PCM pieces into pw-play as they arrive. */
+async function playStream({ rate, chunks, stop }, mine) {
+  const p = spawn('pw-play', ['--rate', String(rate), '--channels', '1', '--format', 's16', '-'], { stdio: ['pipe', 'ignore', 'ignore'] });
+  playing = p;
+  const ended = new Promise((resolve) => p.on('exit', resolve).on('error', resolve));
+  p.stdin.on('error', () => {});
+  for await (const pcm of chunks) {
+    if (mine !== generation || p.exitCode !== null) {
+      stop();
+      break;
+    }
+    p.stdin.write(pcm);
+  }
+  p.stdin.end();
+  await ended;
+  if (playing === p) playing = null;
+}
+
 /** Sentences, so the first one plays while the next ones are being made. */
 const sentences = (text) => text.match(/[^.!?…]+[.!?…]*\s*/g)?.map((x) => x.trim()).filter(Boolean) ?? [text];
+
+// main sets it when there is a Gemini key: (text, lang) -> { pcm, rate } or throws
+let cloud = null;
+const setCloud = (fn) => (cloud = fn);
 
 /** Says `text` aloud; resolves when done. A new call interrupts the previous one. */
 async function speak(text, lang = 'pt') {
   shutUp();
   const mine = generation;
   const clean = String(text).replace(/[*_`#>]/g, '').replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim().slice(0, 800);
-  if (!clean || !can.speak() || !(await kokoro())) return;
+  if (!clean) return;
+  if (cloud) {
+    // the whole answer in one request (the free quota is small, the intonation more natural), played as it streams in
+    let r = null;
+    try {
+      r = await cloud(clean, lang);
+    } catch {} // no key, no quota, too slow: the local voice below
+    if (r) {
+      if (mine !== generation) return r.stop();
+      return playStream(r, mine);
+    }
+    if (mine !== generation) return;
+  }
+  if (!can.speak() || !(await kokoro())) return;
   const parts = sentences(clean).map((s) => synth(s, lang)); // all start now, play in order
   for (const part of parts) {
     const r = await part;
@@ -214,7 +254,7 @@ function shutUp() {
   playing = null;
 }
 /** Starts loading the voice ahead of time (when listening begins). */
-const warmUp = () => can.speak() && kokoro();
+const warmUp = () => can.speak() && kokoro(); // also with the Gemini voice: it is the fallback
 
 /** Stops the voice process (on quit). */
 function stopVoice() {
@@ -231,4 +271,4 @@ const micMuted = async () => /MUTED/.test(await wpctl(['get-volume', '@DEFAULT_A
 /** Only when the user asks for it (the "turn on the microphone" button). */
 const unmuteMic = () => wpctl(['set-mute', '@DEFAULT_AUDIO_SOURCE@', '0']);
 
-module.exports = { listen, transcribe, speak, shutUp, stopVoice, warmUp, micMuted, unmuteMic, can, paths, HOME };
+module.exports = { listen, transcribe, speak, shutUp, stopVoice, warmUp, micMuted, unmuteMic, setCloud, can, paths, HOME };

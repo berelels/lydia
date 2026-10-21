@@ -29,6 +29,13 @@ const DEFAULTS = {
   language: 'system',
   // Talk to her: press it, speak, she acts or answers (Electron accelerator).
   voice_shortcut: 'Super+Alt+Space',
+  // Dictation: press it, talk, press again (or pause); the text is typed where you are.
+  dictation_shortcut: 'Super+Alt+D',
+  // Her voice: a Gemini one when there is a key (the most human); off: Kokoro only, nothing leaves the PC.
+  voice_cloud: true,
+  voice_name: 'Leda', // a Gemini voice: Leda, Aoede, Kore, Sulafat, Zephyr...
+  // After she answers out loud she keeps listening a few seconds, for a reply.
+  voice_followup: true,
   // Workstation tabs: favorite apps (desktop ids), the wallpaper folder ('' = ~/Imagens/Wallpapers or ~/Pictures).
   favorite_apps: [],
   wallpaper_dir: '',
@@ -66,7 +73,8 @@ function load() {
     else if (key === 'chat_provider' && ['claude', 'gemini', 'ollama'].includes(value)) cfg[key] = value;
     else if (key === 'ollama_model' && typeof value === 'string') cfg[key] = value;
     else if (key === 'language' && ['system', 'pt', 'en', 'es'].includes(value)) cfg[key] = value;
-    else if (key === 'voice_shortcut' && typeof value === 'string' && value.length < 60) cfg[key] = value;
+    else if ((key === 'voice_shortcut' || key === 'dictation_shortcut') && typeof value === 'string' && value.length < 60) cfg[key] = value;
+    else if (key === 'voice_name' && typeof value === 'string' && /^[A-Z][a-z]{2,20}$/.test(value)) cfg[key] = value;
     else if (key === 'wallpaper_dir' && typeof value === 'string') cfg[key] = value;
     else if (typeof def === 'string' && typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) cfg[key] = value.toLowerCase();
     else if (Array.isArray(def) && Array.isArray(value)) cfg[key] = value.filter((v) => typeof v === 'string');

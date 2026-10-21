@@ -8,7 +8,7 @@ const i18n = require('./i18n');
 const { t } = i18n;
 const sys = require('./monitor');
 const { ChatSession, MODELS, findClaude } = require('./chat');
-const { GeminiChat, OllamaChat, ollamaModels, geminiModels, stopOllama } = require('./providers');
+const { GeminiChat, OllamaChat, ollamaModels, geminiModels, stopOllama, geminiGenerate, geminiSpeech } = require('./providers');
 const { pickDesktop } = require('./desktop');
 const setup = require('./setup');
 const media = require('./media');
@@ -48,7 +48,7 @@ const GEOM = {
   glow: 24, // room for the shadow around the visible island
 };
 // Height of the open panel for each view (the renderer uses the same numbers).
-const VIEW_H = { home: 200, look: 290, tasks: 330, chat: 440, setup: 440, controls: 330, today: 380, clip: 380, apps: 380, wall: 300, power: 230 };
+const VIEW_H = { home: 200, look: 380, tasks: 330, chat: 440, setup: 440, controls: 330, today: 380, clip: 380, apps: 380, wall: 300, power: 230 };
 const HOVER_IN_MS = 90;
 const HOVER_IN_FULLSCREEN_MS = 350; // reaching for a video's controls shouldn't pop her open
 const HOVER_OUT_MS = 450;
@@ -122,7 +122,7 @@ function place() {
 const gameMode = () => state.game && cfg.hide_in_games;
 // Out of sight: a Steam game (with peeks) or any other fullscreen, like a video (without).
 const hideMode = () => gameMode() || (state.fullscreen && !state.game && cfg.hide_in_fullscreen);
-const PREFS = ['hide_in_games', 'hide_in_fullscreen', 'chat_provider', 'language'];
+const PREFS = ['hide_in_games', 'hide_in_fullscreen', 'chat_provider', 'language', 'voice_followup', 'voice_cloud'];
 const prefs = () => ({ ...Object.fromEntries(PREFS.map((k) => [k, cfg[k]])), lang: i18n.lang() });
 
 /** "system" follows the desktop's language; pt, en and es pick one. */
@@ -471,7 +471,7 @@ function runAction(id) {
   const [verb, arg] = [id.slice(0, id.indexOf(':')), id.slice(id.indexOf(':') + 1)];
   if (verb === 'voice' && arg === 'unmute') {
     state.notice = null;
-    return void voice.unmuteMic().then(toggleVoice);
+    return void voice.unmuteMic().then(() => toggleVoice());
   }
   if (verb === 'voice') return void confirmPending(arg === 'yes');
   if (verb === 'ignore') {
@@ -604,7 +604,8 @@ function tick() {
 
 function showMenu() {
   Menu.buildFromTemplate([
-    { label: t('menu.voice'), ...(voiceKey ? { accelerator: voiceKey } : {}), click: toggleVoice },
+    { label: t('menu.voice'), ...(voiceKey ? { accelerator: voiceKey } : {}), click: () => toggleVoice() },
+    { label: t('menu.dictate'), ...(dictateKey ? { accelerator: dictateKey } : {}), click: () => toggleDictation() },
     { label: t('menu.setup'), click: openSetup },
     { label: t('menu.ram'), click: () => notify('info', t('ram.now'), ramLines(), 8) },
     { type: 'separator' },
@@ -721,19 +722,34 @@ ipcMain.handle('chat-info', chatInfo);
 // ---------- voice: hear, understand, act, answer ----------
 
 let voiceKey = null; // the global shortcut that worked
+let dictateKey = null; // the same, for dictation
 let afterChat = null; // what to do with the next chat reply (speak it, for a spoken question)
 let listening = null; // the recording in progress
 let pending = null; // a tool waiting for the user's yes: { tool, args, spoken }
+let dictating = null; // a dictation recording in progress
+let voiceRun = 0; // bumped on every voice state change: an old answer finishing doesn't end a new one
 
 function setVoice(v, extra = {}) {
+  voiceRun++;
   state.voice = v;
   send('voice', { state: v, ...extra });
   relayout();
 }
 const lang = () => i18n.lang();
 
+// Her voice: Gemini's (more human) when there is a key and the user allows it; Kokoro otherwise and as fallback.
+voice.setCloud((text) => {
+  const key = cfg.voice_cloud ? geminiKey() : '';
+  if (!key) throw new Error('local voice');
+  return geminiSpeech(key, text, { voice: cfg.voice_name });
+});
+
+// "Thanks", "bye", "stop": the conversation ends instead of listening again.
+const BYE = /^(tchau|obrigad[oa]|valeu|chega|para|pare|pode parar|thanks?( you)?|bye|stop|that'?s all|gracias|adios|basta)\b/;
+
 /** Ctrl+Alt+Space, or her mic button: start listening, or stop and use what was said. */
-async function toggleVoice() {
+async function toggleVoice({ followUp = false } = {}) {
+  if (dictating) return dictating.stop();
   if (listening) return listening.stop();
   if (state.voice === 'speaking') voice.shutUp();
   if (!voice.can.hear()) {
@@ -741,14 +757,16 @@ async function toggleVoice() {
     return;
   }
   voice.shutUp();
-  // A muted microphone records only silence: say so, with a way to turn it on.
+  // A muted microphone records only silence: say so, with a way to turn it on (a follow-up just doesn't happen).
   if (await voice.micMuted()) {
+    if (followUp) return;
     notify('info', t('voice.mic_muted'), [t('voice.mic_muted_hint')], 12, [{ id: 'voice:unmute', label: t('voice.unmute'), primary: true }]);
     return;
   }
   setVoice('listening');
   voice.warmUp(); // loads the voice while you talk, so the answer isn't delayed
-  listening = voice.listen({ onLevel: (level) => send('voice', { state: 'listening', level }) });
+  // a follow-up waits less for you to start talking, and silence just ends the conversation
+  listening = voice.listen({ onLevel: (level) => send('voice', { state: 'listening', level }), ...(followUp ? { waitMs: 5000 } : {}) });
   const file = await listening.done;
   listening = null;
   if (!file) return setVoice('idle');
@@ -756,10 +774,84 @@ async function toggleVoice() {
   const r = await voice.transcribe(file, lang());
   if (r.error || !r.text) {
     setVoice('idle');
+    if (followUp && !r.error) return;
     return notify('info', t(r.error === 'stt-failed' ? 'voice.stt_failed' : 'voice.didnt_hear'), [], 5);
   }
   send('voice', { state: 'thinking', heard: r.text });
+  if (followUp && BYE.test(intents.normalize(r.text)) && r.text.split(/\s+/).length <= 4) return answer(t('voice.bye'), { spoken: true, heard: r.text, last: true });
   await handle(r.text, { spoken: true });
+}
+
+// ---------- dictation: talk, and the text is typed where you are ----------
+
+const POLISH = [
+  'You clean up text dictated by voice and transcribed automatically.',
+  'Fix punctuation, capitalization and obvious transcription mistakes; remove filler words and false starts.',
+  'Spoken commands like "new line", "nova linha", "ponto final", "vírgula" become the line break or the mark.',
+  "Keep the speaker's language, words and meaning. Never answer, translate, summarize, explain or add anything.",
+  'Reply with the cleaned text only.',
+].join(' ');
+
+/** Gemini tidies the transcription; without a key (or if it's slow) the raw text is used. */
+async function polish(text) {
+  const key = geminiKey();
+  if (!key) return text;
+  try {
+    const r = await Promise.race([
+      geminiGenerate(key, { systemInstruction: { parts: [{ text: POLISH }] }, contents: [{ role: 'user', parts: [{ text }] }], generationConfig: { temperature: 0.2 } }, { prefer: /lite/ }),
+      new Promise((_, no) => setTimeout(() => no(new Error('slow')), 8000)),
+    ]);
+    const out = r.parts.map((p) => p.text ?? '').join('').trim();
+    return out && out.length < text.length * 1.6 + 40 ? out : text; // much longer: it answered instead of cleaning
+  } catch {
+    return text;
+  }
+}
+
+/** Types into the focused window (X11); elsewhere it goes to the clipboard to paste. */
+function typeOut(text) {
+  const x11 = process.env.XDG_SESSION_TYPE !== 'wayland';
+  if (!x11) {
+    clip.put(text);
+    return notify('ok', t('dictate.copied'), [text.length > 80 ? `${text.slice(0, 77)}…` : text], 6);
+  }
+  execFile('xdotool', ['type', '--clearmodifiers', '--delay', '4', '--', text], { timeout: 60_000 }, (err) => {
+    if (!err) return;
+    clip.put(text);
+    notify('ok', t('dictate.copied'), [], 6);
+  });
+}
+
+async function toggleDictation() {
+  if (dictating) return dictating.stop();
+  if (listening) return listening.stop(); // a conversation was going on: that ends it
+  if (!voice.can.hear()) return notify('info', t('voice.not_installed'), [t('voice.not_installed_hint')], 10);
+  voice.shutUp();
+  if (await voice.micMuted()) {
+    return notify('info', t('voice.mic_muted'), [t('voice.mic_muted_hint')], 12, [{ id: 'voice:unmute', label: t('voice.unmute'), primary: true }]);
+  }
+  setVoice('listening', { dictation: true });
+  // longer pauses are fine here: you are thinking about what to write
+  dictating = voice.listen({ onLevel: (level) => send('voice', { state: 'listening', level, dictation: true }), max: 120_000, quietMs: 2500, waitMs: 8000 });
+  const file = await dictating.done;
+  dictating = null;
+  if (!file) return setVoice('idle');
+  setVoice('thinking', { dictation: true });
+  const r = await voice.transcribe(file, lang(), { prompt: false });
+  if (r.error || !r.text) {
+    setVoice('idle');
+    return notify('info', t(r.error === 'stt-failed' ? 'voice.stt_failed' : 'voice.didnt_hear'), [], 5);
+  }
+  const text = await polish(r.text);
+  setVoice('idle');
+  typeOut(text);
+}
+
+/** After she spoke: listen again for a reply, unless that's off or something else took over. */
+function keepTalking() {
+  if (!cfg.voice_followup || listening || dictating || state.voice !== 'idle') return;
+  // a moment first: Bluetooth speakers are still saying the end of it, and the mic would hear her
+  setTimeout(() => state.voice === 'idle' && !listening && !dictating && toggleVoice({ followUp: true }), 700);
 }
 
 /** What was said (or typed) -> an action, an answer, or a question for the chat. */
@@ -783,14 +875,18 @@ async function handle(text, { spoken }) {
   }
 }
 
-async function answer(text, { spoken, heard, inChat = false, kind = 'info' }) {
+async function answer(text, { spoken, heard, inChat = false, kind = 'info', last = false }) {
   const short = String(text ?? '').replace(/\s+/g, ' ').trim();
   if (!inChat || !state.expanded || state.view !== 'chat') notify(kind, short.length > 140 ? `${short.slice(0, 137)}…` : short, heard ? [`“${heard}”`] : [], Math.min(14, 4 + short.length / 18));
   if (!spoken) return setVoice('idle');
   setVoice('speaking');
   const most = 8000 + short.length * 120; // ~ far longer than it takes to say it
+  const was = voiceRun;
   await Promise.race([voice.speak(short, lang()), new Promise((r) => setTimeout(r, most))]);
-  if (state.voice === 'speaking') setVoice('idle');
+  if (state.voice === 'speaking' && was === voiceRun) {
+    setVoice('idle');
+    if (!last) keepTalking();
+  }
 }
 
 /** Runs a tool; one that needs a yes asks first (buttons, or "sim" out loud). */
@@ -808,6 +904,7 @@ async function doTool(name, args, { spoken, heard }) {
       await voice.speak(q, lang());
     }
     setVoice('idle');
+    if (spoken) keepTalking(); // "sim" / "não" out loud
     return { ok: true, say: q };
   }
   let r;
@@ -1227,13 +1324,21 @@ app.whenReady().then(() => {
   // Her shortcut, or the first free one (Claude's app takes Ctrl+Alt+Space, for one).
   for (const key of [cfg.voice_shortcut, 'Super+Alt+Space', 'Control+Super+Space', 'Super+Shift+Space', 'Alt+Shift+Space']) {
     try {
-      if (key && globalShortcut.register(key, toggleVoice)) {
+      if (key && globalShortcut.register(key, () => toggleVoice())) {
         voiceKey = key;
         break;
       }
     } catch {}
   }
-  if (process.env.LYDIA_DEBUG) console.log(`[lydia] voice shortcut: ${voiceKey ?? 'none free'}`);
+  for (const key of [cfg.dictation_shortcut, 'Super+Alt+D', 'Control+Super+D']) {
+    try {
+      if (key && globalShortcut.register(key, () => toggleDictation())) {
+        dictateKey = key;
+        break;
+      }
+    } catch {}
+  }
+  if (process.env.LYDIA_DEBUG) console.log(`[lydia] voice shortcut: ${voiceKey ?? 'none free'}, dictation: ${dictateKey ?? 'none free'}`);
   every(50, tick);
   every(15_000, checkTasks);
   clip.start(() => send('clip-changed'));
@@ -1290,6 +1395,7 @@ process.on('SIGUSR2', () => {
     setExpanded(true);
   } else if (verb === 'demo') send('demo', arg);
   else if (verb === 'falar') handle(cmd.slice(6).trim(), { spoken: true }); // as if said aloud (tests without a mic)
+  else if (verb === 'ditar') polish(cmd.slice(6).trim()).then(typeOut); // as if dictated (tests without a mic)
   else if (verb === 'limpar') {
     state.notice = null; // recordings: drop the current notice
     pushState();

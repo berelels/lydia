@@ -392,12 +392,14 @@ class OllamaChat extends HistoryChat {
 /**
  * One non-streaming Gemini call (for function calling): the candidates in
  * order, skipping overloaded or silent ones like the chat does.
+ * `prefer`: models to try first (the lite ones for quick, simple jobs).
  * -> { parts: [...], model } or throws HttpError.
  */
-async function geminiGenerate(key, body) {
+async function geminiGenerate(key, body, { prefer = null } = {}) {
   // The same race as the chat: the best model starts, the next joins after HEDGE_MS
   // (at most 3 at once), the first good answer wins.
-  const models = await geminiCandidates(key, '');
+  let models = await geminiCandidates(key, '');
+  if (prefer) models = [...models.filter((m) => prefer.test(m)), ...models.filter((m) => !prefer.test(m))];
   return new Promise((resolve, reject) => {
     const running = new Map();
     let next = 0;
@@ -465,4 +467,98 @@ async function geminiGenerate(key, body) {
   });
 }
 
-module.exports = { GeminiChat, OllamaChat, ollamaModels, geminiModels, stopOllama, geminiGenerate };
+// ---------- Gemini speech (a natural voice) ----------
+
+let ttsList = null;
+/** Text-to-speech models this key can call: flash first (more free quota), newest first. */
+async function ttsModels(key) {
+  if (!ttsList) {
+    const res = await fetch(`${GEMINI}/models?pageSize=200`, { headers: { 'x-goog-api-key': key }, signal: AbortSignal.timeout(4000) });
+    if (!res.ok) throw new HttpError(res.status, await res.text());
+    const { models = [] } = await res.json();
+    ttsList = models
+      .filter((m) => (m.supportedGenerationMethods || []).includes('generateContent'))
+      .map((m) => m.name.replace(/^models\//, ''))
+      .filter((n) => /^gemini-[\w.-]*tts[\w.-]*$/.test(n))
+      .sort((a, b) => /pro/.test(a) - /pro/.test(b) || b.localeCompare(a, undefined, { numeric: true }));
+  }
+  const now = Date.now();
+  return ttsList.filter((m) => !blocked.has(m) && !(resting.get(m) > now));
+}
+
+/** The audio parts of a Gemini SSE stream, as they arrive: { pcm, rate }. */
+async function* sseAudio(body) {
+  const dec = new TextDecoder();
+  let buf = '';
+  for await (const chunk of body) {
+    buf += dec.decode(chunk, { stream: true });
+    const lines = buf.split(/\r?\n/);
+    buf = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      let d;
+      try {
+        d = JSON.parse(line.slice(6));
+      } catch {
+        continue;
+      }
+      for (const part of d.candidates?.[0]?.content?.parts ?? []) {
+        if (part.inlineData?.data) yield { pcm: Buffer.from(part.inlineData.data, 'base64'), rate: Number(/rate=(\d+)/.exec(part.inlineData.mimeType ?? '')?.[1]) || 24000 };
+      }
+    }
+  }
+}
+
+/**
+ * Says `text` with a Gemini voice, streamed: -> { rate, chunks (async PCM
+ * buffers, 16-bit mono), stop() } as soon as the first audio arrives (~1 s),
+ * or throws. Free quota for speech is small: a model out of it rests and the
+ * next is tried; with none left the caller falls back to the local voice.
+ */
+async function geminiSpeech(key, text, { voice = 'Leda', timeout = 8000 } = {}) {
+  const deadline = Date.now() + timeout;
+  for (const model of await ttsModels(key)) {
+    const left = deadline - Date.now();
+    if (left < 1500) break;
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), left); // only until the voice starts
+    try {
+      const res = await fetch(`${GEMINI}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text }] }],
+          generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } },
+        }),
+        signal: ac.signal,
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        if (process.env.LYDIA_DEBUG) console.log(`[lydia] gemini tts ${model} -> ${res.status} ${body.slice(0, 160).replace(/\s+/g, ' ')}`);
+        if (res.status === 429) quotaRest(model, body);
+        else resting.set(model, Date.now() + REST_MS);
+        continue;
+      }
+      const audio = sseAudio(res.body);
+      const first = await audio.next();
+      if (first.done) throw new Error('no audio');
+      clearTimeout(timer);
+      if (process.env.LYDIA_DEBUG) console.log(`[lydia] gemini tts ${model} -> ok`);
+      async function* chunks() {
+        yield first.value.pcm;
+        try {
+          for await (const a of audio) yield a.pcm;
+        } catch {} // cut off midway: what came is said
+      }
+      return { rate: first.value.rate, model, chunks: chunks(), stop: () => ac.abort() };
+    } catch (err) {
+      if (process.env.LYDIA_DEBUG) console.log(`[lydia] gemini tts ${model} -> ${err.message}`);
+      resting.set(model, Date.now() + REST_MS);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw new HttpError(503, 'no speech model answered');
+}
+
+module.exports = { GeminiChat, OllamaChat, ollamaModels, geminiModels, stopOllama, geminiGenerate, geminiSpeech };
