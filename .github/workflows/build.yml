@@ -83,8 +83,9 @@ jobs:
               echo "LYDIA=/opt/Lydia/lydia" >> "$GITHUB_ENV" ;;
             appimage)
               pacman -Syu --noconfirm xorg-server-xvfb xorg-xauth dbus nss gtk3 alsa-lib libxss python python-gobject
-              chmod +x Lydia-*[0-9].AppImage
-              echo "LYDIA=$(ls $PWD/Lydia-*[0-9].AppImage)" >> "$GITHUB_ENV"
+              APP=$(ls $PWD/Lydia-*.AppImage | grep -v arm64)
+              chmod +x "$APP"
+              echo "LYDIA=$APP" >> "$GITHUB_ENV"
               echo "APPIMAGE_EXTRACT_AND_RUN=1" >> "$GITHUB_ENV" ;;
           esac
       - name: start

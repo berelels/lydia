@@ -65,6 +65,7 @@
         "libgtk-3-0",
         "libnotify4",
         "libnss3",
+        "libgbm1",
         "libxss1",
         "libxtst6",
         "xdg-utils",
@@ -75,6 +76,13 @@
         "python3-gi",
         "gir1.2-gtk-3.0",
         "xdotool",
+        "libasound2",
+        "libdrm2",
+        "libxkbcommon0",
+        "libxrandr2",
+        "libxcomposite1",
+        "libxdamage1",
+        "libxfixes3",
         "x11-utils",
         "pulseaudio-utils",
         "libglib2.0-bin",
@@ -104,7 +112,11 @@
         "python3",
         "python3-gobject",
         "pulseaudio-utils",
-        "fontconfig"
+        "fontconfig",
+        "mesa-libgbm",
+        "alsa-lib",
+        "libdrm",
+        "libxkbcommon"
       ]
     },
     "flatpak": {
