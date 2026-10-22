@@ -5,6 +5,7 @@ const path = require('path');
 const i18n = require('../i18n');
 const { t } = i18n;
 const { normalize } = require('./intents');
+const { hostPath } = require('../host');
 const audio = require('../audio');
 
 /**
@@ -113,8 +114,8 @@ async function playMusic({ query, app }) {
 
 const APP_DIRS = [
   path.join(os.homedir(), '.local/share/applications'),
-  '/usr/local/share/applications',
-  '/usr/share/applications',
+  hostPath('/usr/local/share/applications'),
+  hostPath('/usr/share/applications'),
   path.join(os.homedir(), '.local/share/flatpak/exports/share/applications'),
   '/var/lib/flatpak/exports/share/applications',
   '/var/lib/snapd/desktop/applications',
@@ -149,7 +150,7 @@ function catalog(locale, domain) {
   const key = `${locale}/${domain}`;
   if (!catalogs.has(key)) {
     let map = null;
-    for (const base of ['/usr/share/locale-langpack', '/usr/share/locale']) {
+    for (const base of [hostPath('/usr/share/locale-langpack'), hostPath('/usr/share/locale')]) {
       try {
         map = readMo(path.join(base, locale, 'LC_MESSAGES', `${domain}.mo`));
         break;
@@ -424,10 +425,7 @@ const TOOLS = {
     params: { dark: { type: 'boolean' } },
     required: ['dark'],
     run: async ({ dark }) => {
-      const theme = (await run('gsettings', ['get', 'org.gnome.desktop.interface', 'gtk-theme']))?.trim().replace(/'/g, '') ?? '';
-      await run('gsettings', ['set', 'org.gnome.desktop.interface', 'color-scheme', dark ? 'prefer-dark' : 'default']);
-      // Zorin / Yaru style names: "ZorinGrey-Light" <-> "ZorinGrey-Dark"
-      if (/-(light|dark)$/i.test(theme)) await run('gsettings', ['set', 'org.gnome.desktop.interface', 'gtk-theme', theme.replace(/-(light|dark)$/i, dark ? '-Dark' : '-Light')]);
+      await require('../workstation/controls').setSwitch('dark', !!dark); // whatever the desktop
       return { ok: true, say: t(dark ? 'do.dark' : 'do.light') };
     },
   },

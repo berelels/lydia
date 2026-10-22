@@ -17,6 +17,122 @@ const COLOR = 'org.gnome.settings-daemon.plugins.color';
 const NOTIF = 'org.gnome.desktop.notifications';
 const IFACE = 'org.gnome.desktop.interface';
 
+// ---------- night light, do not disturb, dark mode: each desktop keeps them its own way ----------
+
+const DESK = (process.env.XDG_CURRENT_DESKTOP || '').toLowerCase().split(':');
+const on = (d) => DESK.includes(d);
+const isTrue = (v) => (v == null ? null : /true/.test(v));
+const unquote = (v) => v?.replace(/'/g, '').trim() ?? '';
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+/** Is there a theme by that name (system or the user's)? */
+const themeExists = (name) => !!name && [require('../host').hostPath('/usr/share/themes'), path.join(os.homedir(), '.themes'), path.join(os.homedir(), '.local/share/themes')].some((d) => fs.existsSync(path.join(d, name)));
+/**
+ * The dark or light twin of a theme name, if it is installed: "Yaru-dark" <->
+ * "Yaru", "ZorinGrey-Light" <-> "ZorinGrey-Dark", "Mint-Y-Dark-Aqua" <-> "Mint-Y-Aqua".
+ */
+function twin(name, dark) {
+  const tries = dark
+    ? [name.replace(/-light$/i, '-dark'), name.replace(/-Light$/, '-Dark'), name.replace(/^(Mint-[XYL])(?!-Dark)/, '$1-Dark'), `${name}-dark`, `${name}-Dark`]
+    : [name.replace(/-dark$/i, '-light'), name.replace(/-Dark$/, '-Light'), name.replace(/-dark$/i, ''), name.replace(/-Dark(?=-)/, '')];
+  return tries.find((n) => n !== name && themeExists(n)) ?? null;
+}
+
+const kread = async (file, group, key) => {
+  for (const cmd of ['kreadconfig6', 'kreadconfig5']) if (audio.has(cmd)) return (await run(cmd, ['--file', file, '--group', group, '--key', key]))?.trim() ?? null;
+  return null;
+};
+const kwrite = async (file, group, key, value) => {
+  for (const cmd of ['kwriteconfig6', 'kwriteconfig5']) if (audio.has(cmd)) return run(cmd, ['--file', file, '--group', group, '--key', key, value]);
+  return null;
+};
+const xfconf = (channel, prop) => run('xfconf-query', ['-c', channel, '-p', prop]);
+const xfset = async (channel, prop, type, value) => (await run('xfconf-query', ['-c', channel, '-p', prop, '-s', value])) ?? run('xfconf-query', ['-c', channel, '-p', prop, '-n', '-t', type, '-s', value]);
+
+/** { get() -> { nightLight, dnd, dark } (null: this desktop doesn't have it), set(what, value) } */
+const SWITCHES = on('x-cinnamon')
+  ? {
+      get: async () => {
+        const [night, banners, scheme, theme] = await Promise.all([gget('org.cinnamon.settings-daemon.plugins.color', 'night-light-enabled'), gget('org.cinnamon.desktop.notifications', 'display-notifications'), gget('org.x.apps.portal', 'color-scheme'), gget('org.cinnamon.desktop.interface', 'gtk-theme')]);
+        return { nightLight: isTrue(night), dnd: banners == null ? null : !isTrue(banners), dark: scheme ? /prefer-dark/.test(scheme) : theme == null ? null : /dark/i.test(theme) };
+      },
+      set: async (what, value) => {
+        if (what === 'nightLight') await gset('org.cinnamon.settings-daemon.plugins.color', 'night-light-enabled', String(!!value));
+        if (what === 'dnd') await gset('org.cinnamon.desktop.notifications', 'display-notifications', String(!value));
+        if (what === 'dark') {
+          await gset('org.x.apps.portal', 'color-scheme', value ? 'prefer-dark' : 'default'); // Mint 21+
+          for (const [schema, key] of [['org.cinnamon.desktop.interface', 'gtk-theme'], ['org.cinnamon.theme', 'name']]) {
+            const t = twin(unquote(await gget(schema, key)), value);
+            if (t) await gset(schema, key, t);
+          }
+        }
+      },
+    }
+  : on('mate')
+    ? {
+        get: async () => {
+          const [dnd, theme] = await Promise.all([gget('org.mate.NotificationDaemon', 'do-not-disturb'), gget('org.mate.interface', 'gtk-theme')]);
+          return { nightLight: null, dnd: isTrue(dnd), dark: theme == null ? null : /dark/i.test(theme) };
+        },
+        set: async (what, value) => {
+          if (what === 'dnd') await gset('org.mate.NotificationDaemon', 'do-not-disturb', String(!!value));
+          if (what === 'dark') {
+            const t = twin(unquote(await gget('org.mate.interface', 'gtk-theme')), value);
+            if (t) await gset('org.mate.interface', 'gtk-theme', t);
+          }
+        },
+      }
+    : on('xfce')
+      ? {
+          get: async () => {
+            const [dnd, theme] = await Promise.all([xfconf('xfce4-notifyd', '/do-not-disturb'), xfconf('xsettings', '/Net/ThemeName')]);
+            return { nightLight: null, dnd: dnd == null ? false : isTrue(dnd), dark: theme == null ? null : /dark/i.test(theme) };
+          },
+          set: async (what, value) => {
+            if (what === 'dnd') await xfset('xfce4-notifyd', '/do-not-disturb', 'bool', String(!!value));
+            if (what === 'dark') {
+              const t = twin((await xfconf('xsettings', '/Net/ThemeName'))?.trim() ?? '', value);
+              if (t) await xfset('xsettings', '/Net/ThemeName', 'string', t);
+            }
+          },
+        }
+      : on('kde')
+        ? {
+            get: async () => {
+              const [night, scheme] = await Promise.all([kread('kwinrc', 'NightColor', 'Active'), kread('kdeglobals', 'General', 'ColorScheme')]);
+              return { nightLight: night == null ? null : night === 'true', dnd: null, dark: scheme == null ? null : /dark/i.test(scheme) };
+            },
+            set: async (what, value) => {
+              if (what === 'nightLight') {
+                await kwrite('kwinrc', 'NightColor', 'Active', value ? 'true' : 'false');
+                await run('dbus-send', ['--session', '--type=method_call', '--dest=org.kde.KWin', '/KWin', 'org.kde.KWin.reconfigure']);
+              }
+              if (what === 'dark') await run('plasma-apply-colorscheme', [value ? 'BreezeDark' : 'BreezeLight'], 8000);
+            },
+          }
+        : {
+            // GNOME and the desktops built on its settings (Ubuntu, Zorin, Pop, Budgie)
+            get: async () => {
+              const [night, banners, scheme, theme] = await Promise.all([gget(COLOR, 'night-light-enabled'), gget(NOTIF, 'show-banners'), gget(IFACE, 'color-scheme'), gget(IFACE, 'gtk-theme')]);
+              return {
+                nightLight: isTrue(night),
+                dnd: banners == null ? null : !isTrue(banners),
+                dark: scheme == null ? null : /prefer-dark/.test(scheme) || (!/prefer-light/.test(scheme) && /dark/i.test(theme ?? '')),
+              };
+            },
+            set: async (what, value) => {
+              if (what === 'nightLight') await gset(COLOR, 'night-light-enabled', value ? 'true' : 'false');
+              if (what === 'dnd') await gset(NOTIF, 'show-banners', value ? 'false' : 'true');
+              if (what === 'dark') {
+                const theme = unquote(await gget(IFACE, 'gtk-theme'));
+                await gset(IFACE, 'color-scheme', value ? 'prefer-dark' : 'default');
+                if (/-(light|dark)$/i.test(theme)) await gset(IFACE, 'gtk-theme', theme.replace(/-(light|dark)$/i, value ? '-Dark' : '-Light'));
+              }
+            },
+          };
+
 async function network() {
   const out = await run('nmcli', ['-t', '-f', 'TYPE,STATE,CONNECTION', 'device']);
   if (out === null) return null;
@@ -77,27 +193,8 @@ async function brightness() {
 }
 
 async function state() {
-  const [net, bt, snd, input, bright, night, banners, scheme, theme] = await Promise.all([
-    network(),
-    bluetooth(),
-    sound(),
-    mic(),
-    brightness(),
-    gget(COLOR, 'night-light-enabled'),
-    gget(NOTIF, 'show-banners'),
-    gget(IFACE, 'color-scheme'),
-    gget(IFACE, 'gtk-theme'),
-  ]);
-  return {
-    network: net,
-    bluetooth: bt,
-    sound: snd,
-    mic: input,
-    brightness: bright,
-    nightLight: night === null ? null : night === 'true',
-    dnd: banners === null ? null : banners === 'false',
-    dark: scheme === null ? null : /prefer-dark/.test(scheme) || (!/prefer-light/.test(scheme) && /dark/i.test(theme ?? '')),
-  };
+  const [net, bt, snd, input, bright, sw] = await Promise.all([network(), bluetooth(), sound(), mic(), brightness(), SWITCHES.get()]);
+  return { network: net, bluetooth: bt, sound: snd, mic: input, brightness: bright, ...sw };
 }
 
 /** One change from the tab: { what, value }. Returns the new state. */
@@ -131,17 +228,10 @@ async function set({ what, value }) {
       await run('gdbus', ['call', '--session', '--dest', 'org.gnome.SettingsDaemon.Power', '--object-path', '/org/gnome/SettingsDaemon/Power', '--method', 'org.freedesktop.DBus.Properties.Set', 'org.gnome.SettingsDaemon.Power.Screen', 'Brightness', `<int32 ${Math.max(1, Math.min(100, Math.round(Number(value))))}>`]);
       break;
     case 'nightLight':
-      await gset(COLOR, 'night-light-enabled', value ? 'true' : 'false');
-      break;
     case 'dnd':
-      await gset(NOTIF, 'show-banners', value ? 'false' : 'true');
+    case 'dark':
+      await SWITCHES.set(what, !!value);
       break;
-    case 'dark': {
-      const theme = (await gget(IFACE, 'gtk-theme'))?.replace(/'/g, '') ?? '';
-      await gset(IFACE, 'color-scheme', value ? 'prefer-dark' : 'default');
-      if (/-(light|dark)$/i.test(theme)) await gset(IFACE, 'gtk-theme', theme.replace(/-(light|dark)$/i, value ? '-Dark' : '-Light'));
-      break;
-    }
     default:
       break;
   }
@@ -238,4 +328,6 @@ async function btDisconnect(mac) {
   return { ok: (await run('bluetoothctl', ['disconnect', mac], 10_000)) !== null };
 }
 
-module.exports = { state, set, wifiList, wifiConnectNew, wifiDisconnect, btList, btConnect, btDisconnect, parseWifi };
+const setSwitch = (what, value) => SWITCHES.set(what, !!value);
+
+module.exports = { setSwitch, state, set, wifiList, wifiConnectNew, wifiDisconnect, btList, btConnect, btDisconnect, parseWifi };

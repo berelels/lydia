@@ -1,0 +1,12 @@
+{
+  "KPlugin": {
+    "Id": "lydia-helper",
+    "Name": "Lydia helper",
+    "Description": "Tells Lydia where the pointer is and whether a window is fullscreen. Nothing leaves the computer.",
+    "License": "MIT",
+    "Version": "1"
+  },
+  "X-Plasma-API": "javascript",
+  "X-Plasma-MainScript": "code/main.js",
+  "KPackageStructure": "KWin/Script"
+}

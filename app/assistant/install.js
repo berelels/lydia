@@ -1,26 +1,25 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const { HOME, paths } = require('./voice');
 
 /**
  * Installs hearing and a nicer voice into ~/.local/share/lydia/voice, only when
  * the user presses "Install" in the setup wizard. Nothing needs root.
- * - hearing: whisper.cpp (built from source with cmake) + the "small" model
+ * - hearing: whisper.cpp through pywhispercpp (prebuilt wheels for x64 and ARM,
+ *   nothing to compile) in the voice's own Python venv + the "small" model
  * - speaking: Kokoro (kokoro-onnx in its own Python venv) + model and voices
  * onStep({ step, done, error }) reports progress.
  */
 
-const WHISPER_TAG = 'v1.9.5';
-const WHISPER_GIT = 'https://github.com/ggml-org/whisper.cpp';
+const WHISPER_PKG = 'pywhispercpp==1.5.1';
 const MODEL_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin';
 const KOKORO_PKG = 'kokoro-onnx==0.6.1';
 const KOKORO_FILES = 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0';
 
 /** What it will download, for the wizard to show before the user says yes. */
 const PLAN = [
-  { part: 'hear', what: 'whisper.cpp ' + WHISPER_TAG, from: 'github.com/ggml-org/whisper.cpp', mb: 10 },
+  { part: 'hear', what: 'whisper.cpp (pywhispercpp 1.5.1, numpy)', from: 'pypi.org', mb: 25 },
   { part: 'hear', what: 'ggml-small.bin', from: 'huggingface.co/ggerganov', mb: 488 },
   { part: 'speak', what: 'Kokoro (kokoro-onnx, onnxruntime)', from: 'pypi.org', mb: 180 },
   { part: 'speak', what: 'kokoro-v1.0.onnx + voices-v1.0.bin', from: 'github.com/thewh1teagle/kokoro-onnx', mb: 354 },
@@ -51,27 +50,20 @@ async function install(lang, onStep, { hear = true, speak = true } = {}) {
   };
   try {
     fs.mkdirSync(HOME, { recursive: true });
-    if (hear && !fs.existsSync(paths.whisper)) {
-      const src = path.join(HOME, 'src', 'whisper.cpp');
+    const venv = async () => {
+      if (!fs.existsSync(paths.python)) await exec('python3', ['-m', 'venv', path.dirname(path.dirname(paths.python))]);
+    };
+    if (hear && !fs.existsSync(paths.sttReady)) {
       await step('whisper-get', async () => {
-        if (!fs.existsSync(path.join(src, 'CMakeLists.txt'))) {
-          fs.rmSync(src, { recursive: true, force: true });
-          fs.mkdirSync(path.dirname(src), { recursive: true });
-          await exec('git', ['clone', '--depth', '1', '--branch', WHISPER_TAG, WHISPER_GIT, src]);
-        }
-      });
-      await step('whisper-build', async () => {
-        const jobs = String(Math.max(1, os.cpus().length - 1));
-        await exec('cmake', ['-S', src, '-B', path.join(src, 'build'), '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=OFF', '-DWHISPER_BUILD_TESTS=OFF', '-DWHISPER_BUILD_EXAMPLES=ON']);
-        await exec('cmake', ['--build', path.join(src, 'build'), '--config', 'Release', '-j', jobs, '--target', 'whisper-cli']);
-        fs.copyFileSync(path.join(src, 'build', 'bin', 'whisper-cli'), paths.whisper);
-        fs.chmodSync(paths.whisper, 0o755);
+        await venv();
+        await exec(paths.python, ['-m', 'pip', 'install', '--quiet', '--disable-pip-version-check', WHISPER_PKG]);
+        fs.writeFileSync(paths.sttReady, `${WHISPER_PKG}\n`);
       });
     }
     if (hear) await step('model', () => download(MODEL_URL, paths.model));
     if (speak) {
       await step('kokoro', async () => {
-        if (!fs.existsSync(paths.python)) await exec('python3', ['-m', 'venv', path.dirname(path.dirname(paths.python))]);
+        await venv();
         await exec(paths.python, ['-m', 'pip', 'install', '--quiet', '--disable-pip-version-check', KOKORO_PKG]);
       });
       await step('voice', async () => {

@@ -1,6 +1,7 @@
 const { execFile, execFileSync, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { hostPath } = require('./host');
 
 /**
  * Sound through whatever this computer runs: PipeWire's own tools (wpctl,
@@ -20,7 +21,7 @@ function has(cmd) {
       cmd,
       (process.env.PATH || '/usr/bin:/bin').split(':').some((dir) => {
         try {
-          fs.accessSync(path.join(dir, cmd), fs.constants.X_OK);
+          fs.accessSync(path.join(hostPath(dir), cmd), fs.constants.X_OK); // in the Flatpak: the host's tools
           return true;
         } catch {
           return false;

@@ -1,0 +1,5 @@
+#!/bin/sh
+# For building the Flatpak where flatpak-builder isn't a system package: the
+# Flathub one (flatpak install --user flathub org.flatpak.Builder) stands in.
+#   PATH="$PWD/build:$PATH" npm run dist:flatpak
+exec flatpak run --filesystem=host --filesystem=/tmp org.flatpak.Builder "$@"

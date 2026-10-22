@@ -7,7 +7,8 @@
     "start": "electron .",
     "test": "node --test test/*.test.js",
     "dist": "electron-builder --linux deb -c.electronDist=node_modules/electron/dist",
-    "dist:all": "electron-builder --linux deb rpm --x64 --arm64 && electron-builder --linux AppImage --x64 --arm64"
+    "dist:all": "electron-builder --linux deb rpm --x64 --arm64 && electron-builder --linux AppImage --x64 --arm64",
+    "dist:flatpak": "electron-builder --linux flatpak --x64"
   },
   "author": {
     "name": "Gabriel Dias",
@@ -32,7 +33,8 @@
     ],
     "asarUnpack": [
       "app/**/*.py",
-      "gnome-extension/**/*"
+      "gnome-extension/**/*",
+      "app/desktop/kwin-script/**/*"
     ],
     "directories": {
       "output": "dist"
@@ -80,10 +82,7 @@
         "network-manager",
         "wireplumber",
         "pipewire-bin",
-        "python3-venv",
-        "git",
-        "cmake",
-        "build-essential"
+        "python3-venv"
       ],
       "priority": "optional"
     },
@@ -103,6 +102,34 @@
         "python3-gobject",
         "pulseaudio-utils",
         "fontconfig"
+      ]
+    },
+    "flatpak": {
+      "runtime": "org.freedesktop.Platform",
+      "runtimeVersion": "25.08",
+      "sdk": "org.freedesktop.Sdk",
+      "base": "org.electronjs.Electron2.BaseApp",
+      "baseVersion": "25.08",
+      "finishArgs": [
+        "--share=ipc",
+        "--share=network",
+        "--socket=x11",
+        "--socket=pulseaudio",
+        "--device=dri",
+        "--filesystem=host-os:ro",
+        "--filesystem=xdg-pictures:ro",
+        "--filesystem=xdg-data/applications:ro",
+        "--filesystem=xdg-data/icons:ro",
+        "--filesystem=xdg-data/flatpak:ro",
+        "--filesystem=/var/lib/flatpak:ro",
+        "--filesystem=/var/lib/snapd/desktop:ro",
+        "--filesystem=/snap:ro",
+        "--filesystem=xdg-data/lydia:create",
+        "--filesystem=xdg-data/gnome-shell/extensions:create",
+        "--filesystem=xdg-config/autostart:create",
+        "--talk-name=org.freedesktop.Flatpak",
+        "--talk-name=org.freedesktop.secrets",
+        "--talk-name=org.freedesktop.Notifications"
       ]
     }
   },

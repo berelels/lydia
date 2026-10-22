@@ -819,7 +819,7 @@ const SETUP_VIEWS = {
 
   done: (i) => {
     const who = i.provider === 'ollama' ? 'Ollama' : providerName(i.provider);
-    const desk = ['active', 'enabled', 'unsupported'].includes(i.ext.state) || i.ext.backend === 'x11' ? 'on' : 'off';
+    const desk = ['active', 'enabled', 'unsupported'].includes(i.ext.state) || ['x11', 'kwin'].includes(i.ext.backend) ? 'on' : 'off';
     const item = (cls, text) => `<li class="${cls === 'off' ? 'off' : ''}">${esc(text)}</li>`;
     return `
       <p class="s-title">${t('setup.done')}</p>

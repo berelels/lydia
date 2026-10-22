@@ -15,7 +15,7 @@ from kokoro_onnx import Kokoro
 
 # Female voices, natural-sounding: Brazilian Portuguese, American English, Spanish.
 VOICES = {"pt": ("pf_dora", "pt-br"), "en": ("af_heart", "en-us"), "es": ("ef_dora", "es")}
-RUN = os.environ.get("XDG_RUNTIME_DIR") or "/tmp"
+RUN = os.environ.get("LYDIA_RUN") or os.environ.get("XDG_RUNTIME_DIR") or "/tmp"  # LYDIA_RUN: a folder Lydia sees too (Flatpak)
 
 
 def main():

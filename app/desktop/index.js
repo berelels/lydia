@@ -1,5 +1,6 @@
 const { X11Desktop } = require('./x11');
 const { GnomeDesktop, probe } = require('./gnome');
+const kde = require('./kwin');
 
 /**
  * Without any way to see the desktop (Wayland with no helper, an unknown
@@ -39,7 +40,8 @@ class NoDesktop {
 
 /**
  * The best way to watch this desktop: the GNOME helper extension if it answers
- * (X11 or Wayland), plain X11 tools in an X11 session, else nothing.
+ * (X11 or Wayland), plain X11 tools in an X11 session, a KWin script on KDE
+ * Plasma under Wayland, else nothing.
  * cb(backend), not started yet.
  */
 function pickDesktop(ctx, events, cb) {
@@ -47,10 +49,12 @@ function pickDesktop(ctx, events, cb) {
   const force = process.env.LYDIA_DESKTOP; // x11 | gnome | none, for testing
   if (force === 'x11') return cb(new X11Desktop(ctx, events));
   if (force === 'none') return cb(new NoDesktop());
+  if (force === 'kwin') return cb(new kde.KWinDesktop(ctx, events));
   probe((gnome) => {
     if (gnome) return cb(new GnomeDesktop(ctx, events));
     if (!wayland && process.env.DISPLAY && force !== 'gnome') return cb(new X11Desktop(ctx, events));
-    cb(new NoDesktop());
+    // KDE Plasma on Wayland: a KWin script reports what X11 tools can't see there
+    kde.probe((kwin) => cb(wayland && kwin ? new kde.KWinDesktop(ctx, events) : new NoDesktop()));
   });
 }
 

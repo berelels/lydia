@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { apps } = require('../assistant/tools');
+const { hostPath } = require('../host');
 
 /**
  * Apps with their icons (for the Apps tab), wallpapers with thumbnails (for
@@ -14,16 +15,16 @@ const run = (cmd, args, timeout = 5000) => new Promise((r) => execFile(cmd, args
 
 // ---------- app icons (from the icon theme, as data URLs, cached) ----------
 
-const ICON_ROOTS = [path.join(os.homedir(), '.local/share/icons'), path.join(os.homedir(), '.icons'), '/usr/local/share/icons', '/usr/share/icons'];
+const ICON_ROOTS = [path.join(os.homedir(), '.local/share/icons'), path.join(os.homedir(), '.icons'), hostPath('/usr/local/share/icons'), hostPath('/usr/share/icons')];
 const ICON_DIRS = [
   path.join(os.homedir(), '.local/share/icons'),
-  '/usr/share/icons/hicolor',
-  '/usr/share/icons/Adwaita',
-  '/usr/share/icons/ZorinBlue-Light',
-  '/usr/share/icons/Yaru',
+  hostPath('/usr/share/icons/hicolor'),
+  hostPath('/usr/share/icons/Adwaita'),
+  hostPath('/usr/share/icons/ZorinBlue-Light'),
+  hostPath('/usr/share/icons/Yaru'),
   '/var/lib/flatpak/exports/share/icons/hicolor',
   path.join(os.homedir(), '.local/share/flatpak/exports/share/icons/hicolor'),
-  '/usr/share/pixmaps',
+  hostPath('/usr/share/pixmaps'),
 ];
 
 /** The icon theme the user picked, whatever the desktop (null if it can't be told). */
@@ -87,7 +88,7 @@ function indexIcons() {
     for (const e of entries) {
       const full = path.join(dir, e.name);
       if (e.isDirectory() && depth < 4) walk(full, depth + 1);
-      else if (/\.(png|svg)$/.test(e.name) && (/\/(apps|categories|devices|preferences|places)\//.test(full) || dir === '/usr/share/pixmaps')) {
+      else if (/\.(png|svg)$/.test(e.name) && (/\/(apps|categories|devices|preferences|places)\//.test(full) || dir === hostPath('/usr/share/pixmaps'))) {
         const name = e.name.replace(/\.(png|svg)$/, '');
         const r = rank(full);
         if (!iconIndex.has(name) || r < ranks.get(name)) {
@@ -107,7 +108,7 @@ const iconCache = new Map();
 function icon(name) {
   if (!name) return '';
   if (iconCache.has(name)) return iconCache.get(name);
-  const file = path.isAbsolute(name) ? name : indexIcons().get(name);
+  const file = path.isAbsolute(name) ? hostPath(name) : indexIcons().get(name);
   let data = '';
   if (file && fs.existsSync(file)) {
     if (file.endsWith('.svg')) data = `data:image/svg+xml;base64,${fs.readFileSync(file).toString('base64')}`;

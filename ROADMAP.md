@@ -18,21 +18,25 @@ fácil de descobrir. Em ordem de impacto.
 - [x] Perfil AppArmor do Ubuntu 24.04 instalado pelo pós-instalação do `.deb`.
 - [ ] Testar a instalação num Ubuntu 24.04 limpo (máquina virtual).
 - [x] AppImage, `.rpm` e `.deb` para x64 e arm64, gerados no GitHub Actions (sem `--no-sandbox` manual no Ubuntu 24.04).
-- [ ] Voz sem compilar na máquina: baixar o whisper.cpp pronto; `python3-venv` para o Kokoro.
+- [x] Voz sem compilar na máquina: whisper.cpp pelo `pywhispercpp` (pronto para x64 e ARM), no mesmo venv do Kokoro.
 - [ ] Embutir a fonte Inter (OFL).
 - [x] Ícones pelo tema atual (GNOME, Cinnamon, MATE, XFCE, KDE), com os temas herdados.
 - [ ] Licença, créditos de terceiros (Kokoro, whisper.cpp, Inter) e política de privacidade.
-- [ ] Atualizações: repositório APT assinado ou atualização do AppImage.
+- [x] Aviso de versão nova (Releases do GitHub, uma vez por dia; o Flatpak atualiza pela loja).
+- [ ] Repositório APT assinado.
 
 ## 2. Ubuntu 22.04 e derivadas
 - [x] Áudio pelo PulseAudio quando não houver PipeWire (`app/audio.js`).
 - [x] Extensão para GNOME 45–51 (`is_maximized` do 49+); o assistente avisa no GNOME 42–44 e oferece atualizar a extensão.
-- [ ] Extensão no formato do GNOME 42–44.
+- [x] Extensão no formato do GNOME 42–44 (gerada da mesma fonte: `build/legacy-extension.js`).
 
 ## 3. Outros desktops
 - [x] Cinnamon, KDE, XFCE, MATE: papel de parede, sair da sessão, configurações do sistema.
-- [ ] Nesses desktops: modo escuro, luz noturna, não perturbe, áreas de trabalho.
-- [ ] KDE Plasma no Wayland (script do KWin ou layer-shell).
+- [x] Nesses desktops: modo escuro, luz noturna (Cinnamon, KDE) e não perturbe (Cinnamon, MATE, XFCE).
+- [ ] Áreas de trabalho fora do GNOME.
+- [x] KDE Plasma no Wayland: script do KWin (ponteiro e tela cheia), carregado enquanto ela roda.
+- [x] Flatpak (`npm run dist:flatpak`, gerado no CI). O `.deb` continua o recomendado.
+- [ ] Enviar ao Flathub (manifesto a partir do código; justificar o `flatpak-spawn --host`).
 
 ## 4. Confiança e alcance
 - [x] CI (GitHub Actions): testes e pacotes.

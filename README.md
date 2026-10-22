@@ -42,19 +42,22 @@ Languages: English, Portuguese (Brazil) and Spanish.
 
 ## Installing
 
-Each push to `main` builds the packages on GitHub Actions (the run's **lydia-linux** artifact), for x64 and arm64:
+Each push to `main` builds the packages on GitHub Actions (the run's **lydia-linux** and **lydia-flatpak** artifacts), for x64 and arm64. **The `.deb` is the recommended one**: it is the package that gets every feature.
 
 | Package | For |
 | --- | --- |
-| `lydia_<version>_amd64.deb` / `_arm64.deb` | Ubuntu 22.04+, Debian 12+, Mint 21+, Pop!_OS, Zorin, elementary |
+| `lydia_<version>_amd64.deb` / `_arm64.deb` (recommended) | Ubuntu 22.04+, Debian 12+, Mint 21+, Pop!_OS, Zorin, elementary |
 | `lydia-<version>.x86_64.rpm` / `.aarch64.rpm` | Fedora, openSUSE |
 | `Lydia-<version>.AppImage` / `-arm64.AppImage` | Any other distro (Arch, Manjaro...) |
+| `Lydia-<version>.flatpak` (x64) | Any distro with Flatpak. She runs the system's tools on the host (`flatpak-spawn --host`); the busiest-apps list only sees her own sandbox |
 
 ```bash
 sudo apt install ./lydia_1.0.0_amd64.deb
 ```
 
-Or build the `.deb` here (`npm run dist`), or all of them (`npm run dist:all`, needs `rpm` for the `.rpm`).
+Or build the `.deb` here (`npm run dist`), or all of them (`npm run dist:all`, needs `rpm` for the `.rpm`). The Flatpak: `npm run dist:flatpak`, with `flatpak-builder` (or `PATH="$PWD/build:$PATH" npm run dist:flatpak` to use Flathub's `org.flatpak.Builder`).
+
+She checks once a day for a newer release on GitHub and says so (the Flatpak is updated by the store instead).
 Then open **Lydia** from the apps menu; the setup wizard can make her start on login.
 
 ## Running from the source
@@ -76,10 +79,11 @@ npm test
 
 | Desktop | Status |
 | --- | --- |
-| GNOME 45 to 51 (X11 or Wayland) with the Lydia helper extension (`gnome-extension/`) | Everything, including hiding the top bar, the Super key and notifications |
-| GNOME on X11 without the extension (or GNOME 42–44, like Ubuntu 22.04, in an X11 session) | Works, without those three |
-| Cinnamon, MATE, XFCE, KDE Plasma on X11 | The island and most tabs, the wallpaper, logging out and the system settings; GNOME-only switches (night light, do not disturb) are hidden |
-| KDE Plasma on Wayland, GNOME 42–44 on Wayland, others | She runs, but can't see the pointer or fullscreen windows |
+| GNOME 42 to 51 (X11 or Wayland) with the Lydia helper extension (`gnome-extension/`; `legacy/` for 42–44) | Everything, including hiding the top bar, the Super key and her own notifications |
+| GNOME on X11 without the extension | Works, without those three |
+| Cinnamon, MATE, XFCE, KDE Plasma on X11 | The island and the tabs, the wallpaper, dark mode, logging out and the system settings; night light on Cinnamon and KDE, do not disturb on Cinnamon, MATE and XFCE |
+| KDE Plasma on Wayland | The same, with a small KWin script (`app/desktop/kwin-script/`, loaded while she runs) for the pointer and fullscreen windows |
+| Other Wayland desktops | She runs, but can't see the pointer or fullscreen windows |
 
 Tested on Zorin OS 18 (GNOME 46, X11), from the source and as the built package.
 
@@ -90,6 +94,7 @@ Everything runs on your computer and nothing is recorded. What leaves it, and on
 - **Chat and the natural voice**: the engine you pick (Claude, or Gemini with your own key).
 - **Weather**: [Open-Meteo](https://open-meteo.com); the city is the one you type in settings, or a rough one from your internet address ([ipwho.is](https://ipwho.is)).
 - **Speed test**: Cloudflare. **Playing a song on Spotify**: a DuckDuckGo search for its link.
+- **New versions**: once a day, GitHub's page of the latest release (nothing about you is sent).
 
 Voice is transcribed on your computer (whisper.cpp). The visualizer listens to the sound output only while a player is on screen. The GNOME extension only talks to Lydia, over your session's D-Bus.
 

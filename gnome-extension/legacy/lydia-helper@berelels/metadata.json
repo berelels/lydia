@@ -1,0 +1,11 @@
+{
+  "uuid": "lydia-helper@berelels",
+  "name": "Lydia helper",
+  "description": "Lets the Lydia desktop companion know where the pointer is and whether a window is fullscreen or right below the top panel. Needed on Wayland; nothing is shown and nothing leaves the computer.",
+  "shell-version": [
+    "42",
+    "43",
+    "44"
+  ],
+  "version": 6
+}

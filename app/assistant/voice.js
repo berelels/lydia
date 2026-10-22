@@ -10,28 +10,33 @@ const audio = require('../audio');
  * - listen(): records from the default microphone (16 kHz mono)
  *   until you stop talking; the audio never touches the disk except one
  *   temporary WAV in the RAM-backed runtime dir, deleted right after.
- * - transcribe(): whisper.cpp, if installed in ~/.local/share/lydia/voice.
+ * - transcribe(): whisper.cpp (through pywhispercpp), if installed in ~/.local/share/lydia/voice.
  * - speak(): a Gemini voice when main gave one (setCloud: it sounds the most
  *   human), else Kokoro, a local female voice, if installed there
  *   (kokoro_server.py keeps it loaded). Without either she shows her answers
  *   instead of saying them.
  */
 
-const HOME = path.join(process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'), 'lydia', 'voice');
-const RUN = process.env.XDG_RUNTIME_DIR || os.tmpdir();
+// the same folder for the .deb and the Flatpak: the models (~1 GB) are downloaded once
+const HOME = path.join(require('../host').hostData(), 'lydia', 'voice');
+// the recording, read by whisper right after (in the Flatpak whisper runs on the host: a folder both see)
+const RUN = require('../host').inFlatpak ? path.join(HOME, 'tmp') : process.env.XDG_RUNTIME_DIR || os.tmpdir();
 const RATE = 16000;
 
 const paths = {
   whisper: path.join(HOME, 'whisper-cli'),
   model: path.join(HOME, 'ggml-small.bin'),
-  python: path.join(HOME, 'kokoro', 'bin', 'python'), // its own venv: kokoro-onnx and onnxruntime
+  python: path.join(HOME, 'kokoro', 'bin', 'python'), // the voice's own venv: pywhispercpp, kokoro-onnx, onnxruntime
+  sttReady: path.join(HOME, 'pywhispercpp.ok'), // written once pywhispercpp is installed in it
+  whisperPy: unpacked(path.join(__dirname, 'whisper_py.py')),
   kokoro: path.join(HOME, 'kokoro-v1.0.onnx'),
   voices: path.join(HOME, 'voices-v1.0.bin'),
   server: unpacked(path.join(__dirname, 'kokoro_server.py')),
 };
 
 const can = {
-  hear: () => fs.existsSync(paths.whisper) && fs.existsSync(paths.model),
+  // whisper.cpp through Python (installed now), or the whisper-cli an older Lydia compiled
+  hear: () => fs.existsSync(paths.model) && ((fs.existsSync(paths.sttReady) && fs.existsSync(paths.python)) || fs.existsSync(paths.whisper)),
   speak: () => fs.existsSync(paths.python) && fs.existsSync(paths.kokoro) && fs.existsSync(paths.voices),
 };
 
@@ -63,6 +68,7 @@ function listen({ onLevel = () => {}, max = 15_000, quietMs = 1100, waitMs = 600
       if (!spoke) return resolve(null);
       let pcm = Buffer.concat(chunks, bytes);
       if (pcm.subarray(0, 4).toString() === 'RIFF') pcm = pcm.subarray(44); // some versions write a header
+      fs.mkdirSync(RUN, { recursive: true });
       const file = path.join(RUN, `lydia-voice-${process.pid}.wav`);
       fs.writeFileSync(file, Buffer.concat([wavHeader(pcm.length), pcm]), { mode: 0o600 });
       resolve(file);
@@ -130,7 +136,11 @@ function transcribe(file, lang = 'pt', { prompt = VOCABULARY } = {}) {
       return resolve({ error: 'no-stt' });
     }
     const threads = String(Math.max(2, Math.min(8, os.cpus().length - 2)));
-    execFile(paths.whisper, ['-m', paths.model, '-f', file, '-l', lang, '-t', threads, '-nt', '-np', ...(prompt ? ['--prompt', prompt] : [])], { timeout: 60_000, maxBuffer: 1 << 20 }, (err, out) => {
+    const py = fs.existsSync(paths.sttReady) && fs.existsSync(paths.python);
+    const [cmd, args] = py
+      ? [paths.python, [paths.whisperPy, '-m', paths.model, '-f', file, '-l', lang, '-t', threads, ...(prompt ? ['--prompt', prompt] : [])]]
+      : [paths.whisper, ['-m', paths.model, '-f', file, '-l', lang, '-t', threads, '-nt', '-np', ...(prompt ? ['--prompt', prompt] : [])]];
+    execFile(cmd, args, { timeout: 60_000, maxBuffer: 1 << 20 }, (err, out) => {
       fs.rmSync(file, { force: true });
       if (err) return resolve({ error: 'stt-failed' });
       const text = String(out).replace(/\[[^\]]*\]|\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim(); // drop "[Música]", "(risos)"
@@ -152,7 +162,8 @@ function kokoro() {
   clearTimeout(idleTimer);
   idleTimer = setTimeout(() => server?.kill(), IDLE_MS);
   if (server) return ready;
-  server = spawn(paths.python, [paths.server, paths.kokoro, paths.voices], { stdio: ['pipe', 'pipe', 'ignore'] });
+  fs.mkdirSync(RUN, { recursive: true });
+  server = spawn(paths.python, [paths.server, paths.kokoro, paths.voices], { stdio: ['pipe', 'pipe', 'ignore'], env: { ...process.env, LYDIA_RUN: RUN } });
   ready = new Promise((resolve) => {
     let buf = '';
     server.stdout.on('data', (d) => {

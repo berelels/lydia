@@ -1,3 +1,4 @@
+require('./host'); // first: in the Flatpak, the system's tools run on the host
 const { app, BrowserWindow, Menu, ipcMain, screen, safeStorage, shell, clipboard, nativeTheme, globalShortcut, dialog } = require('electron');
 const { execFile, execFileSync, spawn } = require('child_process');
 const fs = require('fs');
@@ -23,6 +24,7 @@ const { weather } = require('./workstation/weather');
 const today = require('./workstation/today');
 const clip = require('./workstation/clipboard');
 const files = require('./workstation/files');
+const updates = require('./updates');
 
 // Under Wayland, run through XWayland: a native Wayland window can't place
 // itself at the top of the screen or stay above the others. Chromium picks its
@@ -487,6 +489,12 @@ function runAction(id) {
     return void voice.unmuteMic().then(() => toggleVoice());
   }
   if (verb === 'voice') return void confirmPending(arg === 'yes');
+  if (verb === 'url') {
+    // only her own release page
+    if (arg.startsWith('https://github.com/berelels/lydia/')) shell.openExternal(arg);
+    state.notice = null;
+    return void setExpanded(false);
+  }
   if (verb === 'ignore') {
     watch.hogs.ignore.add(arg);
     cfg.stuck_process_ignore = [...watch.hogs.ignore];
@@ -1512,6 +1520,18 @@ app.whenReady().then(() => {
     const cover = m?.cover ?? '';
     send('media', m && { ...m, cover: cover === lastCover ? undefined : cover, at: Date.now() });
     lastCover = cover;
+  });
+  // a newer version on GitHub: said once, with a button to its page
+  updates.watch({
+    current: app.getVersion(),
+    seen: () => cfg.update_seen,
+    tell: (v) => {
+      cfg.update_seen = v;
+      try {
+        config.save('update_seen', v);
+      } catch {}
+    },
+    onNew: (r) => notify('info', t('update.title', { v: r.version }), [t('update.text')], 20, [{ id: `url:${r.url}`, label: t('update.get'), primary: true }]),
   });
   sys.cpu(); // prime the CPU delta
   try {
