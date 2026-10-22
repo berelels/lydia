@@ -9,7 +9,9 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="Lydia · A workstation at the top of your screen">
 <meta property="og:description" content="A dynamic island for Linux: controls, today, apps, a music player and a voice assistant.">
-<meta property="og:image" content="img/og.png">
+<meta property="og:image" content="https://cattastudios.com.br/lydia/img/og.png">
+<meta property="og:url" content="https://cattastudios.com.br/lydia/">
+<link rel="canonical" href="https://cattastudios.com.br/lydia/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -167,29 +169,29 @@
   <section class="section" id="install" data-section="install">
     <div class="intro">
       <h2 class="big" data-split data-i18n="inst.title">install in<br>a minute</h2>
-      <p class="side" data-fade data-i18n="inst.lead">x64 and ARM64; the .deb is the recommended one. Everything on GNOME 42 to 51; the island and most tabs on Cinnamon, MATE, XFCE and KDE.</p>
+      <p class="side" data-fade data-i18n="inst.lead">Click a package to download it (x64; ARM64 and older versions on <a class="link-u" href="https://github.com/berelels/lydia/releases">GitHub</a>). The .deb is the recommended one. Everything on GNOME 42 to 51; the island and most tabs on Cinnamon, MATE, XFCE and KDE.</p>
     </div>
     <div class="rows">
       <div class="row" data-fade>
-        <span class="row__tag"><span class="pill pill--dark">.deb</span><span class="pill pill--rec" data-i18n="inst.rec">recommended</span></span>
+        <span class="row__tag"><a class="pill pill--dark" href="https://github.com/berelels/lydia/releases/latest/download/lydia_1.0.0_amd64.deb" data-cursor="download">.deb <span aria-hidden="true">↓</span></a><span class="pill pill--rec" data-i18n="inst.rec">recommended</span></span>
         <span class="row__who" data-i18n="inst.deb">Ubuntu, Debian, Mint, Pop!_OS, Zorin</span>
         <code>sudo apt install ./lydia_1.0.0_amd64.deb</code>
         <button class="orb" data-copy="sudo apt install ./lydia_1.0.0_amd64.deb" aria-label="Copy" data-cursor="copy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
       </div>
       <div class="row" data-fade>
-        <span class="pill pill--dark">.rpm</span>
+        <a class="pill pill--dark" href="https://github.com/berelels/lydia/releases/latest/download/lydia-1.0.0.x86_64.rpm" data-cursor="download">.rpm <span aria-hidden="true">↓</span></a>
         <span class="row__who" data-i18n="inst.rpm">Fedora, openSUSE</span>
         <code>sudo dnf install ./lydia-1.0.0.x86_64.rpm</code>
         <button class="orb" data-copy="sudo dnf install ./lydia-1.0.0.x86_64.rpm" aria-label="Copy" data-cursor="copy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
       </div>
       <div class="row" data-fade>
-        <span class="pill pill--dark">Flatpak</span>
+        <a class="pill pill--dark" href="https://github.com/berelels/lydia/releases/latest/download/Lydia-1.0.0-x86_64.flatpak" data-cursor="download">Flatpak <span aria-hidden="true">↓</span></a>
         <span class="row__who" data-i18n="inst.flatpak">Any distro with Flatpak</span>
-        <code>flatpak install ./Lydia-1.0.0.flatpak</code>
-        <button class="orb" data-copy="flatpak install ./Lydia-1.0.0.flatpak" aria-label="Copy" data-cursor="copy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+        <code>flatpak install ./Lydia-1.0.0-x86_64.flatpak</code>
+        <button class="orb" data-copy="flatpak install ./Lydia-1.0.0-x86_64.flatpak" aria-label="Copy" data-cursor="copy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
       </div>
       <div class="row" data-fade>
-        <span class="pill pill--dark">AppImage</span>
+        <a class="pill pill--dark" href="https://github.com/berelels/lydia/releases/latest/download/Lydia-1.0.0.AppImage" data-cursor="download">AppImage <span aria-hidden="true">↓</span></a>
         <span class="row__who" data-i18n="inst.appimage">Any other distro</span>
         <code>chmod +x Lydia-1.0.0.AppImage</code>
         <button class="orb" data-copy="chmod +x Lydia-1.0.0.AppImage" aria-label="Copy" data-cursor="copy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
