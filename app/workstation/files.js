@@ -124,7 +124,7 @@ function icon(name) {
 /** All apps, alphabetically, with icons; favorites first. */
 function appList(favorites = []) {
   const list = apps()
-    .map((a) => ({ id: a.id, name: a.label, find: [a.id, ...a.names].join(' ').toLowerCase(), icon: icon(a.iconName) }))
+    .map((a) => ({ id: a.id, name: a.label, find: [a.id, ...a.names].join(' ').toLowerCase(), icon: icon(a.iconName), category: a.category }))
     .sort((a, b) => a.name.localeCompare(b.name));
   const fav = favorites.map((id) => list.find((a) => a.id === id)).filter(Boolean);
   return { favorites: fav, all: list };

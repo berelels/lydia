@@ -112,6 +112,19 @@ async function playMusic({ query, app }) {
 
 // ---------- apps (.desktop files) ----------
 
+/** The freedesktop main categories, folded into the few groups the Apps tab filters by. */
+const GROUPS = [
+  ['games', /\bGame\b/],
+  ['internet', /\b(Network|WebBrowser|Email|Chat|InstantMessaging)\b/],
+  ['media', /\b(AudioVideo|Audio|Video|Music|Player)\b/],
+  ['graphics', /\b(Graphics|Photography|3DGraphics)\b/],
+  ['dev', /\b(Development|IDE)\b/],
+  ['office', /\b(Office|Education|Science)\b/],
+  ['system', /\b(Settings|System|Monitor|PackageManager|HardwareSettings)\b/],
+  ['utility', /\b(Utility|Accessories)\b/],
+];
+const category = (cats) => GROUPS.find(([, re]) => re.test(cats))?.[0] ?? 'other';
+
 const APP_DIRS = [
   path.join(os.homedir(), '.local/share/applications'),
   hostPath('/usr/local/share/applications'),
@@ -205,7 +218,7 @@ function apps() {
       // The program it runs ("gnome-calculator", flatpak's --command=spotify), to find it among processes.
       const exec = get('Exec');
       const bin = /--command=(\S+)/.exec(exec)?.[1] ?? path.basename(exec.split(/\s+/)[0] ?? '');
-      seen.set(f, { id: f.replace(/\.desktop$/, ''), name, label, names, bin, iconName: get('Icon') });
+      seen.set(f, { id: f.replace(/\.desktop$/, ''), name, label, names, bin, iconName: get('Icon'), category: category(get('Categories')) });
     }
   }
   appCache = [...seen.values()].filter(Boolean);

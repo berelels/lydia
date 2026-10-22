@@ -25,6 +25,7 @@ const today = require('./workstation/today');
 const clip = require('./workstation/clipboard');
 const files = require('./workstation/files');
 const updates = require('./updates');
+const tray = require('./workstation/tray');
 
 // Under Wayland, run through XWayland: a native Wayland window can't place
 // itself at the top of the screen or stay above the others. Chromium picks its
@@ -1084,6 +1085,19 @@ const WS = {
   'clip.clear': () => (clip.clear(), clip.list()),
   'clip.pause': ({ on } = {}) => (clip.setPaused(on), clip.isPaused()),
   'apps.get': () => files.appList(cfg.favorite_apps),
+  // the apps in the system tray (Discord, Steam...): a click shows them, their menus open in the island
+  'tray.list': () => tray.list(),
+  'tray.activate': async (a) => {
+    const r = await tray.activate(a);
+    if (r.ok) setExpanded(false);
+    return r;
+  },
+  'tray.menu': (a) => tray.menu(a),
+  'tray.click': async (a) => {
+    const r = await tray.click(a);
+    if (r.ok) setExpanded(false);
+    return r;
+  },
   'apps.launch': ({ id } = {}) => {
     const ok = files.launch(id);
     if (ok) setExpanded(false);

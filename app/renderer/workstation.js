@@ -479,27 +479,59 @@ window.lydia.on('clip-changed', () => island.dataset.view === 'clip' && loadClip
 // ---------- Apps ----------
 
 let appData = null;
+let appsAt = 0;
+let appCat = 'all'; // the category chip in use
+let trayItems = [];
+const CATS = ['all', 'games', 'internet', 'media', 'graphics', 'dev', 'office', 'system', 'utility', 'other'];
 
 function renderApps() {
   if (!appData) return;
   const q = $('app-search').value.trim().toLowerCase();
   const cell = (a) => `<button class="app" data-id="${esc(a.id)}" title="${esc(a.name)} · ${esc(t('apps.fav_tip'))}">${a.icon ? `<img src="${a.icon}" alt="">` : `<i>${esc(a.name[0] ?? '?')}</i>`}<span>${esc(a.name)}</span></button>`;
+  // only the categories that have apps, each a chip: a click filters, again shows all
+  const present = new Set(appData.all.map((a) => a.category));
+  $('app-cats').innerHTML = CATS.filter((c) => c === 'all' || present.has(c))
+    .map((c) => `<button class="cat${c === appCat ? ' on' : ''}" data-cat="${c}">${esc(t(`apps.cat_${c}`))}</button>`)
+    .join('');
   // every word of the search (its start: "explorador" finds "explorar") in the name, the English name or the keywords
   const plain = (x) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const words = plain(q).split(/\s+/).filter((w) => w.length > 2);
   const all = appData.all.filter((a) => {
+    if (appCat !== 'all' && a.category !== appCat) return false;
     if (!q) return true;
     const hay = plain(`${a.name} ${a.find}`);
     return hay.includes(plain(q)) || (words.length && words.every((w) => hay.includes(w.slice(0, Math.max(3, Math.min(5, w.length))))));
   });
   let html = '';
-  if (!q && appData.favorites.length) html += `<div class="side-title">${esc(t('apps.favorites'))}</div><div class="apps fav">${appData.favorites.map(cell).join('')}</div><div class="side-title">${esc(t('apps.all'))}</div>`;
+  const home = !q && appCat === 'all';
+  // what lives in the system tray (Discord, Steam...): click opens it, right click its menu
+  if (home && trayItems.length) {
+    html += `<div class="side-title">${esc(t('apps.tray'))}</div><div class="tray-row">${trayItems
+      .map((it, i) => `<button class="tray-item" data-tray="${i}" title="${esc(it.title || it.id)} · ${esc(t('apps.tray_tip'))}">${it.icon ? `<img src="${it.icon}" alt="">` : `<i>${esc((it.title || it.id || '?')[0])}</i>`}</button>`)
+      .join('')}</div>`;
+  }
+  if (home && appData.favorites.length) html += `<div class="side-title">${esc(t('apps.favorites'))}</div><div class="apps fav">${appData.favorites.map(cell).join('')}</div>`;
+  if (home && (trayItems.length || appData.favorites.length)) html += `<div class="side-title">${esc(t('apps.all'))}</div>`;
   html += all.length ? `<div class="apps">${all.map(cell).join('')}</div>` : `<div class="muted empty">${esc(t('apps.none'))}</div>`;
   $('app-grid').innerHTML = html;
 }
 async function loadApps() {
   appData = (await ws('apps.get')) ?? appData;
+  appsAt = Date.now();
   renderApps();
+}
+/** The tray changes while the tab is open (an app starts or quits): only it is asked again. */
+async function loadTray() {
+  const items = (await ws('tray.list')) ?? [];
+  const key = (l) => l.map((i) => `${i.service}${i.path}${i.title}${i.icon.length}`).join('|');
+  if (key(items) === key(trayItems)) return;
+  trayItems = items;
+  if (!$('tray-menu').hidden) return; // not under an open menu
+  renderApps();
+}
+function loadAppsView() {
+  if (!appData || Date.now() - appsAt > 60_000) loadApps();
+  loadTray();
 }
 $('app-search').addEventListener('input', renderApps);
 $('app-search').addEventListener('keydown', (e) => {
@@ -507,11 +539,33 @@ $('app-search').addEventListener('keydown', (e) => {
   const first = $('app-grid').querySelector('.app');
   if (first) ws('apps.launch', { id: first.dataset.id });
 });
-$('app-grid').addEventListener('click', (e) => {
+$('app-cats').addEventListener('click', (e) => {
+  const c = e.target.closest('.cat');
+  if (!c) return;
+  appCat = c.dataset.cat === appCat ? 'all' : c.dataset.cat;
+  renderApps();
+  $('app-grid').scrollTop = 0;
+});
+$('app-grid').addEventListener('click', async (e) => {
   const b = e.target.closest('.app');
-  if (b) ws('apps.launch', { id: b.dataset.id });
+  if (b) return void ws('apps.launch', { id: b.dataset.id });
+  const tr = e.target.closest('.tray-item');
+  if (!tr) return;
+  const it = trayItems[Number(tr.dataset.tray)];
+  if (!it) return;
+  // many tray apps (Ayatana) only answer with their menu
+  const r = it.onlyMenu ? { ok: false } : await ws('tray.activate', it);
+  if (!r?.ok && it.menu) openTrayMenu(it, tr);
 });
 $('app-grid').addEventListener('contextmenu', async (e) => {
+  const tr = e.target.closest('.tray-item');
+  if (tr) {
+    e.preventDefault();
+    e.stopPropagation();
+    const it = trayItems[Number(tr.dataset.tray)];
+    if (it?.menu) openTrayMenu(it, tr);
+    return;
+  }
   const b = e.target.closest('.app');
   if (!b) return;
   e.preventDefault();
@@ -519,6 +573,46 @@ $('app-grid').addEventListener('contextmenu', async (e) => {
   appData = (await ws('apps.favorite', { id: b.dataset.id })) ?? appData;
   renderApps();
 });
+
+// a tray app's own menu, drawn in the island (submenus open in place)
+let trayMenuOf = null;
+async function openTrayMenu(it, anchor) {
+  const box = $('tray-menu');
+  const { items = [] } = (await ws('tray.menu', it)) ?? {};
+  if (!items.length) return;
+  trayMenuOf = it;
+  const entry = (m, depth = 0) => {
+    if (!m.visible) return '';
+    if (m.type === 'separator') return '<hr>';
+    const mark = m.toggle ? `<i class="tick${m.checked ? ' on' : ''}"></i>` : '';
+    const sub = m.children?.length ? `<div class="sub" hidden>${m.children.map((c) => entry(c, depth + 1)).join('')}</div>` : '';
+    return `<button class="tm${sub ? ' has-sub' : ''}" data-id="${m.id}" ${m.enabled ? '' : 'disabled'}>${mark}<span>${esc(m.label)}</span></button>${sub}`;
+  };
+  box.innerHTML = `<b>${esc(it.title || it.id)}</b>${items.map((m) => entry(m)).join('')}`;
+  box.hidden = false;
+  // inside the island: below the icon if it fits, else above it, never past the card's edges
+  const card = box.offsetParent.getBoundingClientRect();
+  const r = anchor.getBoundingClientRect();
+  const below = card.bottom - r.bottom - 14;
+  const above = r.top - card.top - 14;
+  const room = Math.max(below, above);
+  box.style.maxHeight = `${Math.min(250, room)}px`;
+  box.style.left = `${Math.max(8, Math.min(r.left - card.left, card.width - box.offsetWidth - 8))}px`;
+  box.style.top = below >= Math.min(box.scrollHeight, 250) || below >= above ? `${r.bottom - card.top + 6}px` : `${r.top - card.top - 6 - Math.min(box.scrollHeight, room)}px`;
+}
+const closeTrayMenu = () => (($('tray-menu').hidden = true), (trayMenuOf = null));
+$('tray-menu').addEventListener('click', async (e) => {
+  const b = e.target.closest('.tm');
+  if (!b || b.disabled || !trayMenuOf) return;
+  if (b.classList.contains('has-sub')) return void (b.nextElementSibling.hidden = !b.nextElementSibling.hidden);
+  const it = trayMenuOf;
+  closeTrayMenu();
+  await ws('tray.click', { service: it.service, menu: it.menu, id: Number(b.dataset.id) });
+});
+document.addEventListener('mousedown', (e) => {
+  if (!$('tray-menu').hidden && !e.target.closest('#tray-menu') && !e.target.closest('.tray-item')) closeTrayMenu();
+});
+window.addEventListener('lydia-view', () => closeTrayMenu());
 
 // ---------- Wallpaper ----------
 
@@ -872,7 +966,7 @@ const LOADERS = {
   controls: [loadControls, 2500],
   tasks: [loadSystem, 30_000],
   clip: [loadClip, 0],
-  apps: [loadApps, 0],
+  apps: [loadAppsView, 4000], // the apps once a minute at most; the tray every few seconds
   wall: [loadWall, 0],
 };
 // Today's countdown ticks without asking main each second
