@@ -50,3 +50,46 @@ jobs:
           name: lydia-flatpak
           path: dist/*.flatpak
           if-no-files-found: error
+
+  # Each package installed on a clean system, then Lydia started on a virtual screen:
+  # the dependencies resolve and she gets as far as picking a desktop backend.
+  install-test:
+    needs: build
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { image: 'ubuntu:22.04', kind: deb }
+          - { image: 'ubuntu:24.04', kind: deb }
+          - { image: 'debian:12', kind: deb }
+          - { image: 'fedora:42', kind: rpm }
+          - { image: 'archlinux:latest', kind: appimage }
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: lydia-linux
+      - name: install
+        run: |
+          case "${{ matrix.kind }}" in
+            deb)
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y ./lydia_*_amd64.deb xvfb xauth dbus-x11
+              echo "LYDIA=/opt/Lydia/lydia" >> "$GITHUB_ENV" ;;
+            rpm)
+              dnf install -y ./lydia-*.x86_64.rpm xorg-x11-server-Xvfb xorg-x11-xauth dbus-daemon which
+              echo "LYDIA=/opt/Lydia/lydia" >> "$GITHUB_ENV" ;;
+            appimage)
+              pacman -Syu --noconfirm xorg-server-xvfb xorg-xauth dbus nss gtk3 alsa-lib libxss python python-gobject
+              chmod +x Lydia-*[0-9].AppImage
+              echo "LYDIA=$(ls $PWD/Lydia-*[0-9].AppImage)" >> "$GITHUB_ENV"
+              echo "APPIMAGE_EXTRACT_AND_RUN=1" >> "$GITHUB_ENV" ;;
+          esac
+      - name: start
+        run: |
+          export XDG_RUNTIME_DIR=$(mktemp -d)
+          dbus-run-session -- xvfb-run -a -s "-screen 0 1920x1080x24" timeout 40 "$LYDIA" --no-sandbox > lydia.log 2>&1 || true
+          cat lydia.log | grep -v "dbus\|atom_cache" | tail -20
+          grep -q "\[lydia\] desktop:" lydia.log

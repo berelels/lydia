@@ -98,6 +98,10 @@ Everything runs on your computer and nothing is recorded. What leaves it, and on
 
 Voice is transcribed on your computer (whisper.cpp). The visualizer listens to the sound output only while a player is on screen. The GNOME extension only talks to Lydia, over your session's D-Bus.
 
+## License
+
+Lydia is source-available, not open source: you may install her, read the code and change it for your own personal use, free of charge; you may not sell her, use her commercially or redistribute her (changed or not). See [LICENSE](LICENSE). Third-party parts keep their own licenses: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 ## Roadmap
 
 See [ROADMAP.md](ROADMAP.md).

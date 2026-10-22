@@ -32,6 +32,7 @@ window.LYDIA_I18N = {
     'inst.deb': 'Ubuntu, Debian, Mint, Pop!_OS, Zorin', 'inst.rpm': 'Fedora, openSUSE', 'inst.appimage': 'Qualquer outra distro', 'inst.flatpak': 'Qualquer distro com Flatpak', 'inst.rec': 'recomendado',
     'cta.title': 'dê um trabalho<br>ao topo da tela',
     'foot.made': 'feito no Brasil por Gabriel Dias, na <a class="link-u" href="https://cattastudios.com.br" target="_blank" rel="noopener">Catta Studios</a>',
+    'foot.privacy': 'Privacidade', 'foot.license': 'Licença',
     'cursor.install': 'instalar', 'cursor.github': 'github', 'cursor.next': 'próxima', 'cursor.copy': 'copiar', 'cursor.copied': 'copiado', 'cursor.lang': 'idioma',
   },
   es: {
@@ -66,6 +67,7 @@ window.LYDIA_I18N = {
     'inst.deb': 'Ubuntu, Debian, Mint, Pop!_OS, Zorin', 'inst.rpm': 'Fedora, openSUSE', 'inst.appimage': 'Cualquier otra distro', 'inst.flatpak': 'Cualquier distro con Flatpak', 'inst.rec': 'recomendado',
     'cta.title': 'dale trabajo a lo<br>alto de tu pantalla',
     'foot.made': 'hecho en Brasil por Gabriel Dias, en <a class="link-u" href="https://cattastudios.com.br" target="_blank" rel="noopener">Catta Studios</a>',
+    'foot.privacy': 'Privacidad', 'foot.license': 'Licencia',
     'cursor.install': 'instalar', 'cursor.github': 'github', 'cursor.next': 'siguiente', 'cursor.copy': 'copiar', 'cursor.copied': 'copiado', 'cursor.lang': 'idioma',
   },
 };

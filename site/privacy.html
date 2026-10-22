@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lydia · Privacy</title>
+<meta name="description" content="What Lydia keeps on your computer, and what leaves it only when you use it.">
+<meta name="theme-color" content="#f4f2f7">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .doc { max-width: 760px; padding: 60px 0 100px; }
+  .doc h1 { margin-bottom: 36px; }
+  .doc h2 { font-size: 1.3rem; letter-spacing: -0.02em; margin: 40px 0 12px; }
+  .doc p, .doc li { color: var(--ink-2); line-height: 1.6; }
+  .doc ul { padding-left: 20px; }
+  .doc a { text-decoration: underline; text-underline-offset: 3px; }
+  .doc [lang] { display: none; }
+  .doc [lang].on { display: block; }
+  .langs { display: flex; gap: 6px; margin-left: auto; }
+  .langs button { height: 36px; padding: 0 14px; border-radius: 999px; background: var(--card); font-size: 0.8rem; font-weight: 600; }
+  .langs button.on { background: var(--violet); color: #fff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="nav">
+    <a class="word" href="./">lydia</a>
+    <div class="langs"><button data-l="en">EN</button><button data-l="pt">PT</button><button data-l="es">ES</button></div>
+  </header>
+
+  <main class="doc">
+    <section lang="en">
+      <h1 class="big">privacy</h1>
+      <p>Lydia runs on your computer. She has no account, no server of her own and no analytics, and she records nothing about you.</p>
+      <h2>What stays on your computer</h2>
+      <ul>
+        <li>Your voice: it is recorded only while you talk to her, transcribed on your computer (whisper.cpp) and the recording is deleted right after.</li>
+        <li>The clipboard history, in memory only (gone when she quits); passwords and keys are never kept.</li>
+        <li>Your tasks, timers and settings, in her folder (<code>~/.config/lydia</code>).</li>
+        <li>Your Gemini key, if you give one, in your system's keyring.</li>
+        <li>The chat is not saved: it disappears when you start another one.</li>
+        <li>The GNOME extension and the KWin script only talk to Lydia, over your session's D-Bus.</li>
+      </ul>
+      <h2>What leaves it, only when you use it</h2>
+      <ul>
+        <li><b>Chat and the natural voice:</b> what you say or type goes to the engine you picked: Google Gemini (with your key) or Anthropic Claude (with your login). A local Ollama model keeps it on your computer.</li>
+        <li><b>Weather:</b> <a href="https://open-meteo.com">Open-Meteo</a>, for the city you type in settings, or a rough one from your internet address (<a href="https://ipwho.is">ipwho.is</a>).</li>
+        <li><b>Speed test:</b> Cloudflare. <b>Playing a song on Spotify:</b> a DuckDuckGo search for its link.</li>
+        <li><b>New versions:</b> once a day, GitHub's page of her latest release. Nothing about you is sent.</li>
+        <li><b>Installing the voice:</b> the models and packages are downloaded from pypi.org, huggingface.co and github.com when you press "Install".</li>
+      </ul>
+      <h2>This site</h2>
+      <p>No cookies and no analytics. The language you pick is remembered in your browser. The fonts come from Google Fonts and the animation scripts from jsDelivr and unpkg.</p>
+      <p>Questions: <a href="mailto:gabrieldiasdev@proton.me">gabrieldiasdev@proton.me</a></p>
+    </section>
+
+    <section lang="pt">
+      <h1 class="big">privacidade</h1>
+      <p>A Lydia roda no seu computador. Ela não tem conta, servidor próprio nem analytics, e não grava nada sobre você.</p>
+      <h2>O que fica no seu computador</h2>
+      <ul>
+        <li>Sua voz: é gravada só enquanto você fala com ela, transcrita no seu computador (whisper.cpp) e a gravação é apagada logo depois.</li>
+        <li>O histórico da área de transferência, só na memória (some quando ela fecha); senhas e chaves nunca são guardadas.</li>
+        <li>Suas tarefas, timers e configurações, na pasta dela (<code>~/.config/lydia</code>).</li>
+        <li>Sua chave do Gemini, se você der uma, no chaveiro do sistema.</li>
+        <li>A conversa não é salva: some quando você começa outra.</li>
+        <li>A extensão do GNOME e o script do KWin só falam com a Lydia, pelo D-Bus da sua sessão.</li>
+      </ul>
+      <h2>O que sai, só quando você usa</h2>
+      <ul>
+        <li><b>Conversa e voz natural:</b> o que você fala ou digita vai para o motor que você escolheu: Google Gemini (com a sua chave) ou Anthropic Claude (com o seu login). Um modelo local no Ollama mantém tudo no seu computador.</li>
+        <li><b>Clima:</b> <a href="https://open-meteo.com">Open-Meteo</a>, para a cidade que você digitar nas configurações, ou uma aproximada pelo seu endereço de internet (<a href="https://ipwho.is">ipwho.is</a>).</li>
+        <li><b>Teste de velocidade:</b> Cloudflare. <b>Tocar uma música no Spotify:</b> uma busca no DuckDuckGo pelo link.</li>
+        <li><b>Versões novas:</b> uma vez por dia, a página da última versão no GitHub. Nada sobre você é enviado.</li>
+        <li><b>Instalar a voz:</b> os modelos e pacotes são baixados de pypi.org, huggingface.co e github.com quando você aperta "Instalar".</li>
+      </ul>
+      <h2>Este site</h2>
+      <p>Sem cookies e sem analytics. O idioma que você escolhe fica guardado no seu navegador. As fontes vêm do Google Fonts e os scripts de animação do jsDelivr e do unpkg.</p>
+      <p>Dúvidas: <a href="mailto:gabrieldiasdev@proton.me">gabrieldiasdev@proton.me</a></p>
+    </section>
+
+    <section lang="es">
+      <h1 class="big">privacidad</h1>
+      <p>Lydia corre en tu computadora. No tiene cuenta, servidor propio ni analíticas, y no graba nada sobre ti.</p>
+      <h2>Lo que se queda en tu computadora</h2>
+      <ul>
+        <li>Tu voz: se graba solo mientras le hablas, se transcribe en tu computadora (whisper.cpp) y la grabación se borra enseguida.</li>
+        <li>El historial del portapapeles, solo en memoria (desaparece al cerrarla); las contraseñas y claves nunca se guardan.</li>
+        <li>Tus tareas, temporizadores y ajustes, en su carpeta (<code>~/.config/lydia</code>).</li>
+        <li>Tu clave de Gemini, si das una, en el llavero del sistema.</li>
+        <li>La conversación no se guarda: desaparece cuando empiezas otra.</li>
+        <li>La extensión de GNOME y el script de KWin solo hablan con Lydia, por el D-Bus de tu sesión.</li>
+      </ul>
+      <h2>Lo que sale, solo cuando lo usas</h2>
+      <ul>
+        <li><b>Chat y voz natural:</b> lo que dices o escribes va al motor que elegiste: Google Gemini (con tu clave) o Anthropic Claude (con tu sesión). Un modelo local en Ollama lo deja todo en tu computadora.</li>
+        <li><b>Clima:</b> <a href="https://open-meteo.com">Open-Meteo</a>, para la ciudad que escribas en los ajustes, o una aproximada por tu dirección de internet (<a href="https://ipwho.is">ipwho.is</a>).</li>
+        <li><b>Prueba de velocidad:</b> Cloudflare. <b>Poner una canción en Spotify:</b> una búsqueda en DuckDuckGo por su enlace.</li>
+        <li><b>Versiones nuevas:</b> una vez al día, la página de la última versión en GitHub. No se envía nada sobre ti.</li>
+        <li><b>Instalar la voz:</b> los modelos y paquetes se descargan de pypi.org, huggingface.co y github.com cuando pulsas "Instalar".</li>
+      </ul>
+      <h2>Este sitio</h2>
+      <p>Sin cookies y sin analíticas. El idioma que eliges se recuerda en tu navegador. Las fuentes vienen de Google Fonts y los scripts de animación de jsDelivr y unpkg.</p>
+      <p>Dudas: <a href="mailto:gabrieldiasdev@proton.me">gabrieldiasdev@proton.me</a></p>
+    </section>
+  </main>
+</div>
+<script>
+  (() => {
+    let lang = 'en';
+    try { lang = localStorage.getItem('lydia-lang') || (navigator.language || 'en').slice(0, 2); } catch (e) {}
+    const show = (l) => {
+      if (!document.querySelector(`.doc [lang="${l}"]`)) l = 'en';
+      document.querySelectorAll('.doc [lang]').forEach((s) => s.classList.toggle('on', s.lang === l));
+      document.querySelectorAll('.langs button').forEach((b) => b.classList.toggle('on', b.dataset.l === l));
+      document.documentElement.lang = l === 'pt' ? 'pt-BR' : l;
+      try { localStorage.setItem('lydia-lang', l); } catch (e) {}
+    };
+    document.querySelectorAll('.langs button').forEach((b) => b.addEventListener('click', () => show(b.dataset.l)));
+    show(lang);
+  })();
+</script>
+</body>
+</html>

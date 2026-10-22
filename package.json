@@ -1,6 +1,7 @@
 {
   "name": "lydia",
   "version": "1.0.0",
+  "license": "SEE LICENSE IN LICENSE",
   "description": "A workstation for Linux that lives at the top of your screen, like a dynamic island",
   "main": "app/main.js",
   "scripts": {
@@ -29,7 +30,9 @@
       "gnome-extension/**/*",
       "assets/logo-*.png",
       "package.json",
-      "!**/__pycache__/**"
+      "!**/__pycache__/**",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md"
     ],
     "asarUnpack": [
       "app/**/*.py",
@@ -130,7 +133,8 @@
         "--talk-name=org.freedesktop.Flatpak",
         "--talk-name=org.freedesktop.secrets",
         "--talk-name=org.freedesktop.Notifications"
-      ]
+      ],
+      "license": "LICENSE"
     }
   },
   "desktopName": "lydia.desktop"

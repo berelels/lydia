@@ -1,0 +1,56 @@
+Lydia Personal Use License 1.0
+
+Copyright (c) 2026 Gabriel Dias. All rights reserved, except as granted below.
+
+"The software" means Lydia: the source code in this repository, the packages
+built from it, its name, and its look (the island, Lydia's character, the site).
+
+1. What you may do
+
+   You may download, install and run the software, read and study its source
+   code, and change it, for your own personal use, without paying anything.
+
+   You may fork this repository on GitHub only to propose changes back to it
+   (a pull request).
+
+2. What you may not do
+
+   a. Commercial use. You may not use the software, or anything made from it,
+      to earn money or any other commercial advantage: you may not sell it,
+      charge for access to it, offer it as a paid service, bundle it with a
+      paid product or service, or use it in a business's products.
+
+   b. Distribution. You may not copy, publish, share, upload or otherwise
+      distribute the software, a changed version of it, or a substantial part
+      of its code, in source or built form, except to send a change back to
+      this repository. To point others to the software, link to the official
+      repository or site.
+
+   c. Name and look. You may not use the name "Lydia", her character or the
+      software's look to identify, promote or present anything other than the
+      official software.
+
+3. Contributions
+
+   If you send a change to this repository (a pull request, a patch or code in
+   an issue), you agree that the author may use, change, license and
+   distribute it as part of the software, under this license or any other.
+
+4. Other people's work
+
+   Parts of the software, and things it downloads at your request, belong to
+   others and keep their own licenses. See THIRD_PARTY_NOTICES.md. This
+   license does not change those.
+
+5. Ending
+
+   If you break any of these terms, this license ends for you at once, and you
+   must stop using the software and delete your copies, changed or not.
+
+6. No warranty
+
+   The software is provided "as is", without warranty of any kind, express or
+   implied, including fitness for a particular purpose. The author is not
+   liable for any claim, damage or loss arising from the software or its use.
+
+For any use not allowed here, ask the author: gabrieldiasdev@proton.me
