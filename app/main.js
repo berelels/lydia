@@ -42,6 +42,7 @@ const GEOM = {
   pill: { w: 210, h: 38 }, // hanging from the panel when nothing is below it
   clockPill: { w: 132 }, // the same, showing only the clock
   music: { w: 360, h: 86 }, // something is playing (and nothing is below): a small player
+  toast: { w: 380, h: 64 }, // a notification just arrived (WhatsApp, Discord...): she shows it
   // A window right below the panel (a maximized browser's address bar): just a
   // thin handle, so she covers nothing. (GNOME draws its panel above every
   // window, so she can't live inside it.)
@@ -76,9 +77,10 @@ const state = {
   news: false, // a reply came while you were away, not seen yet
   byKey: false, // opened with the Super key: stays open until Super again, Esc, or the keyboard goes elsewhere
   voice: 'idle', // idle | listening | thinking | speaking
+  toast: null, // { id, app, title, body, icon, urgent, until }: a notification she is showing
 };
 let hoverSince = 0;
-let mouseOnCard = false; // the pointer is on the music card (it takes clicks then)
+let mouseOnCard = false; // the pointer is on the music card or a notification (it takes clicks then)
 let leaveSince = 0;
 let lastCursor = '';
 let shapeTimer = null;
@@ -97,7 +99,8 @@ function islandRect(kind) {
 }
 // Just the clock (and nothing to say): a narrower pill. The page uses the same width (style.css).
 const pillW = () => (cfg.bar_content === 'clock' && !currentIssue() && !state.paused && !state.news && state.voice === 'idle' ? GEOM.clockPill.w : GEOM.pill.w);
-const collapsedKind = () => (layout.lip ? 'lip' : layout.compact ? 'mini' : layout.music ? 'music' : 'pill');
+const collapsedKind = () => (layout.toast ? 'toast' : layout.lip ? 'lip' : layout.compact ? 'mini' : layout.music ? 'music' : 'pill');
+const takesClicks = (kind) => kind === 'music' || kind === 'toast'; // used where they are, without opening
 
 function grow(r, m) {
   const x = Math.max(0, r.x - m);
@@ -156,8 +159,10 @@ function relayout(force = false) {
     top = -(GEOM.pill.h + GEOM.glow);
     compact = true;
   } else if (peek) compact = true;
-  const music = !!state.mediaCard && !lip && !compact && !hidden;
-  const next = { top, topOpen, lip, edge: state.fullscreen, compact, hidden, peek, music, pillW: pillW() }; // pillW: reshape when it narrows/widens
+  // a notification shows over anything but a game; in fullscreen only an urgent one
+  const toast = !!state.toast && !hidden && (!state.fullscreen || state.toast.urgent);
+  const music = !!state.mediaCard && !lip && !compact && !hidden && !toast;
+  const next = { top, topOpen, lip, edge: state.fullscreen, compact, hidden, peek, music, toast, pillW: pillW() }; // pillW: reshape when it narrows/widens
   if (!force && Object.entries(next).every(([k, v]) => layout[k] === v)) return;
   Object.assign(layout, next);
   if (process.env.LYDIA_DEBUG) {
@@ -581,10 +586,12 @@ function tick() {
   }
   if (layout.hidden || (hideMode() && !state.expanded)) return; // no hover while out of sight
 
-  if (!state.expanded && collapsedKind() === 'music') {
-    // The music card is used where it is (its buttons, the bar, the volume): it
-    // takes the mouse while the pointer is on it, and opens only when clicked.
-    const on = blind ? hovered : inside(p, r);
+  if (!state.expanded && takesClicks(collapsedKind())) {
+    // The music card and a notification are used where they are (buttons, the
+    // bar, the volume): they take the mouse while the pointer is on them, and
+    // open only when clicked.
+    // a margin around it: the pointer is reported ~0.1 s late, and a quick move-and-click must still land
+    const on = blind ? hovered : inside(p, grow(r, mouseOnCard ? 14 : 22));
     if (on !== mouseOnCard) {
       mouseOnCard = on;
       win.setIgnoreMouseEvents(!on);
@@ -1098,8 +1105,8 @@ const WS = {
   'power.do': ({ action, sure } = {}) => (POWER_CONFIRM.has(action) && !sure ? { confirm: true } : files.power(action)),
   // the system's notifications (through the GNOME helper)
   'notif.get': () => new Promise((r) => desktop.notifications((list) => r(list && list.map((n) => ({ ...n, icon: files.icon(n.icon) }))))),
-  'notif.open': ({ id } = {}) => (desktop.notification(id, 'open'), setExpanded(false), true),
-  'notif.dismiss': ({ id } = {}) => (desktop.notification(id, 'dismiss'), true),
+  'notif.open': ({ id } = {}) => (desktop.notification(id, 'open'), endToast(id), setExpanded(false), true),
+  'notif.dismiss': ({ id } = {}) => (desktop.notification(id, 'dismiss'), endToast(id), true),
   'notif.clear': ({ ids } = {}) => (Array.isArray(ids) && ids.forEach((id) => desktop.notification(id, 'dismiss')), true),
   'wifi.list': ({ rescan } = {}) => controls.wifiList(!!rescan),
   'wifi.connect': ({ ssid, password } = {}) => (typeof ssid === 'string' ? controls.wifiConnectNew(ssid, typeof password === 'string' ? password : '') : { ok: false }),
@@ -1316,9 +1323,58 @@ const desktopCtx = {
   },
   selfXid: () => (ownXid ||= alive() ? win.getNativeWindowHandle().readUInt32LE(0) : 0),
 };
+// ---------- notifications: she shows each new one herself ----------
+
+const seenNotif = new Set();
+const bootAt = Date.now(); // what arrived before she started is not news
+let notifTimer = 0;
+let toastTimer = 0;
+const TOAST_MS = 6000;
+
+function newNotifications() {
+  desktop.notifications?.((list) => {
+    if (!list) return;
+    // new to her, and recent (a reloaded shell lists the old ones again)
+    const fresh = list.filter((n) => !seenNotif.has(n.id) && n.time >= bootAt - 2000 && Date.now() - n.time < 60_000);
+    list.forEach((n) => seenNotif.add(n.id));
+    if (!fresh.length || state.paused) return;
+    const n = fresh.sort((a, b) => b.time - a.time)[0];
+    execFile('gsettings', ['get', 'org.gnome.desktop.notifications', 'show-banners'], { timeout: 1500 }, (err, out) => {
+      if (!err && String(out).trim() === 'false' && !n.urgent) return; // do not disturb
+      showToast(n);
+    });
+  });
+}
+
+function showToast(n) {
+  state.toast = { id: n.id, app: n.app, title: n.title, body: n.body, urgent: !!n.urgent, until: Date.now() + TOAST_MS };
+  send('toast', { ...state.toast, icon: files.icon(n.icon) });
+  relayout();
+  armToast();
+}
+/** Gone after a few seconds, but never from under the pointer. */
+function armToast() {
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    if (!state.toast) return;
+    if (mouseOnCard && collapsedKind() === 'toast') return void (state.toast.until = Date.now() + 1500, armToast());
+    endToast();
+  }, Math.max(200, state.toast.until - Date.now()));
+}
+function endToast(id) {
+  if (!state.toast || (id != null && state.toast.id !== id)) return;
+  clearTimeout(toastTimer);
+  state.toast = null;
+  relayout();
+}
+
 const desktopEvents = {
   pointer: (p) => (pointer = p),
-  notifications: () => send('notif-changed'),
+  notifications: () => {
+    send('notif-changed');
+    clearTimeout(notifTimer);
+    notifTimer = setTimeout(newNotifications, 150); // a burst of changes: one look
+  },
   // The Super key, when it is hers: open (with the keyboard, like a start menu) or close.
   superKey: () => {
     if (state.expanded) return setExpanded(false);
@@ -1357,6 +1413,7 @@ function startDesktop() {
     d.start();
     if (cfg.hide_gnome_panel) d.setPanel(true);
     if (cfg.super_opens) d.setSuper(true);
+    d.setBanners?.(true); // she shows the notifications; GNOME's banners stay quiet
     if (alive()) applyShape(); // with no pointer source the pill takes the mouse itself
     send('prefs', prefs()); // now it is known whether the panel can be hidden
   });

@@ -167,6 +167,8 @@ window.lydia.on('geometry', (g) => {
   css.setProperty('--pill-w', `${g.pill.w}px`);
   css.setProperty('--music-w', `${g.music.w}px`);
   css.setProperty('--music-h', `${g.music.h}px`);
+  css.setProperty('--toast-w', `${g.toast.w}px`);
+  css.setProperty('--toast-h', `${g.toast.h}px`);
   css.setProperty('--pill-h', `${g.pill.h}px`);
   css.setProperty('--mini-w', `${g.mini.w}px`);
   css.setProperty('--lip-w', `${g.lip.w}px`);
@@ -186,6 +188,7 @@ window.lydia.on('layout', (l) => {
   island.classList.toggle('gone', !!l.hidden);
   island.classList.toggle('peek', !!l.peek);
   island.classList.toggle('music', !!l.music); // something playing: the small player
+  island.classList.toggle('toast', !!l.toast); // a notification just arrived
   gone = !!l.hidden && !l.peek;
   if (!laidOut) {
     void island.offsetHeight;

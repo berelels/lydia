@@ -25,6 +25,7 @@ class GnomeDesktop {
     this.timer = 0;
     this.panelHidden = false;
     this.superMine = false;
+    this.bannersMine = false;
     this.version = 0; // of the extension running in the shell (Watch says it)
   }
 
@@ -62,6 +63,7 @@ class GnomeDesktop {
       // again: the extension may have been reloaded
       if (this.panelHidden) call('SetPanel', ['true']);
       if (this.superMine) call('SetSuper', ['true']);
+      if (this.bannersMine) call('SetBanners', ['true']);
     };
     // The monitor needs a moment to subscribe before the first Watch makes the extension report.
     setTimeout(watch, 300);
@@ -72,6 +74,7 @@ class GnomeDesktop {
     // back at once, not when the extension notices she's gone
     if (this.panelHidden) call('SetPanel', ['false']);
     if (this.superMine) call('SetSuper', ['false']);
+    if (this.bannersMine) call('SetBanners', ['false']);
     clearInterval(this.timer);
     this.monitor?.kill();
   }
@@ -88,6 +91,12 @@ class GnomeDesktop {
     this.superMine = mine;
     call('SetSuper', [mine ? 'true' : 'false']);
     return !mine || this.version >= 3;
+  }
+
+  /** GNOME's notification banners stay quiet while she shows them (helper 6+). */
+  setBanners(mine) {
+    this.bannersMine = mine;
+    call('SetBanners', [mine ? 'true' : 'false']);
   }
 
   /** The system's notifications (WhatsApp, Discord...): cb(list | null). */

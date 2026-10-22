@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lydia · A workstation at the top of your screen</title>
+<meta name="description" content="Lydia is a workstation for Linux that lives at the top of your screen, like a dynamic island: controls, today, apps, a music player and a voice assistant.">
+<meta name="theme-color" content="#f4f2f7">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Lydia · A workstation at the top of your screen">
+<meta property="og:description" content="A dynamic island for Linux: controls, today, apps, a music player and a voice assistant.">
+<meta property="og:image" content="img/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body>
+
+<div class="veil is-on" aria-hidden="true"><div class="veil__stage"></div><span class="veil__count">000</span></div>
+
+<div class="wrap">
+
+<header class="nav">
+  <a class="word" href="#top" aria-label="Lydia">lydia</a>
+  <nav class="nav__links" aria-label="Main">
+    <a href="#top" data-spy="top" data-i18n="nav.home">Home</a>
+    <a href="#features" data-spy="features" data-i18n="nav.features">Features</a>
+    <a href="#voice" data-spy="voice" data-i18n="nav.voice">Voice</a>
+    <a href="#privacy" data-spy="privacy" data-i18n="nav.privacy">Privacy</a>
+    <a href="#install" data-spy="install" data-i18n="nav.install">Install</a>
+  </nav>
+  <div class="nav__tools">
+    <a class="pill pill--dark" href="#install" data-cursor="install"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2c.4 4.6 2.4 8.6 8 10-5.6 1.4-7.6 5.4-8 10-.4-4.6-2.4-8.6-8-10 5.6-1.4 7.6-5.4 8-10z"/></svg>Lydia 1.0</a>
+    <span class="pill pill--soft date">--</span>
+    <button class="dot-btn lang-btn" aria-label="Language" data-cursor="lang"><span>EN</span></button>
+    <button class="dot-btn burger" aria-expanded="false" aria-controls="drawer" aria-label="Menu"><i></i><i></i></button>
+  </div>
+</header>
+
+<div class="drawer" id="drawer">
+  <nav aria-label="Mobile">
+    <a href="#top" data-i18n="nav.home">Home</a>
+    <a href="#features" data-i18n="nav.features">Features</a>
+    <a href="#voice" data-i18n="nav.voice">Voice</a>
+    <a href="#privacy" data-i18n="nav.privacy">Privacy</a>
+    <a href="#install" data-i18n="nav.install">Install</a>
+  </nav>
+</div>
+
+<main id="top">
+
+  <!-- ============ hero ============ -->
+  <section class="hero" data-section="top">
+    <div class="hero__copy">
+      <h1 class="big" data-split>
+        <span class="ln" data-i18n="hero.l1">here,</span>
+        <span class="ln" data-i18n="hero.l2">whenever</span>
+        <span class="ln" data-i18n="hero.l3">you need it.</span>
+      </h1>
+      <p class="side" data-fade data-i18n="hero.lead">A workstation for Linux that lives at the top of your screen, like a dynamic island.</p>
+      <dl class="stats" data-fade>
+        <div><dt><sup>+</sup><span data-count="10">10</span></dt><dd data-i18n="stat.tabs">tabs in<br>one place</dd></div>
+        <div><dt><span data-count="3">3</span></dt><dd data-i18n="stat.langs">languages, from<br>the first run</dd></div>
+      </dl>
+    </div>
+
+    <div class="block block--violet stage" data-stage>
+      <span class="ghost" aria-hidden="true">lydia</span>
+      <div class="demo" data-demo>
+        <div class="demo__win">
+          <img src="img/controls.png" width="740" height="358" alt="" data-i18n-attr="alt:shot.controls" data-shot>
+          <img src="img/today.png" width="840" height="428" alt="" data-i18n-attr="alt:shot.today" data-shot>
+          <img src="img/tasks.png" width="840" height="368" alt="" data-i18n-attr="alt:shot.system" data-shot>
+          <img src="img/apps.png" width="760" height="418" alt="" data-i18n-attr="alt:shot.apps" data-shot>
+          <img src="img/wall.png" width="840" height="309" alt="" data-i18n-attr="alt:shot.wall" data-shot>
+        </div>
+        <div class="demo__pill" aria-hidden="true"><span class="clock">--:--</span><span>22°</span></div>
+      </div>
+      <div class="lydia lydia--hero" data-lydia aria-hidden="true"></div>
+
+      <a class="cut cut--br" href="https://github.com/berelels/lydia" target="_blank" rel="noopener" aria-label="GitHub" data-cursor="github">
+        <span class="orb"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.8 1.19 1.82 1.19 3.08 0 4.42-2.69 5.39-5.25 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg></span>
+      </a>
+      <div class="cut cut--bl">
+        <button class="thumb" data-thumb aria-label="Next view"><img alt="" src="img/today.png"></button>
+        <button class="thumb" data-thumb aria-label="Next view"><img alt="" src="img/tasks.png"></button>
+        <button class="orb" data-next aria-label="Next view" data-cursor="next"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M7 17 17 7M8 7h9v9"/></svg></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ features ============ -->
+  <section class="section" id="features" data-section="features">
+    <div class="intro">
+      <h2 class="big" data-split data-i18n="feat.title">everything<br>within reach</h2>
+      <p class="side" data-fade data-i18n="feat.lead">Hover the top of the screen, or press Super. Every tab is one click away, and the island closes by itself when you leave.</p>
+    </div>
+    <div class="bento">
+      <article class="block block--violet tile span-2" data-fade>
+        <div class="tile__shot"><img src="img/controls.png" width="740" height="358" alt="" data-i18n-attr="alt:shot.controls" loading="lazy"></div>
+        <div class="tile__foot"><span class="tag" data-i18n="tab.controls">controls</span><p data-i18n="feat.controls">Wi-Fi, Bluetooth, sound, night light and the player.</p></div>
+        <span class="cut cut--br"><span class="orb orb--num">01</span></span>
+      </article>
+      <article class="block block--dark tile" data-fade>
+        <div class="tile__shot"><img src="img/today.png" width="840" height="428" alt="" data-i18n-attr="alt:shot.today" loading="lazy"></div>
+        <div class="tile__foot"><span class="tag" data-i18n="tab.today">today</span><p data-i18n="feat.today">Clock, weather, the week, timers and tasks.</p></div>
+        <span class="cut cut--br"><span class="orb orb--num">02</span></span>
+      </article>
+      <article class="block block--lav tile" data-fade>
+        <div class="tile__shot"><img src="img/tasks.png" width="840" height="368" alt="" data-i18n-attr="alt:shot.system" loading="lazy"></div>
+        <div class="tile__foot"><span class="tag" data-i18n="tab.system">system</span><p data-i18n="feat.system">CPU, memory, disk and the heaviest apps.</p></div>
+        <span class="cut cut--br"><span class="orb orb--num">03</span></span>
+      </article>
+      <article class="block block--dark tile" data-fade>
+        <div class="tile__shot"><img src="img/apps.png" width="760" height="418" alt="" data-i18n-attr="alt:shot.apps" loading="lazy"></div>
+        <div class="tile__foot"><span class="tag" data-i18n="tab.apps">apps</span><p data-i18n="feat.apps">Every app, in your language, with favorites.</p></div>
+        <span class="cut cut--br"><span class="orb orb--num">04</span></span>
+      </article>
+      <article class="block block--violet tile" data-fade>
+        <div class="tile__shot"><img src="img/wall.png" width="840" height="309" alt="" data-i18n-attr="alt:shot.wall" loading="lazy"></div>
+        <div class="tile__foot"><span class="tag" data-i18n="tab.wall">wallpapers</span><p data-i18n="feat.wall">Your wallpapers, applied with a click.</p></div>
+        <span class="cut cut--br"><span class="orb orb--num">05</span></span>
+      </article>
+    </div>
+  </section>
+
+  <!-- ============ voice ============ -->
+  <section class="section split" id="voice" data-section="voice">
+    <div class="block block--dark talk" data-talk>
+      <div class="lydia lydia--talk" data-lydia aria-hidden="true"></div>
+      <div class="bubbles">
+        <p class="bubble bubble--me" data-i18n="voice.me">“Lydia, set a 25 minute timer.”</p>
+        <p class="bubble bubble--her" data-i18n="voice.her">Done. 25 minutes, starting now.</p>
+      </div>
+      <span class="cut cut--tl"><span class="orb orb--violet"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 4a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V7a3 3 0 0 0-3-3zM6 11a6 6 0 0 0 12 0M12 17v3"/></svg></span></span>
+    </div>
+    <div class="split__copy">
+      <h2 class="big" data-split data-i18n="voice.title">talk.<br>she does it.</h2>
+      <p class="side" data-fade data-i18n="voice.lead">Press Super + Alt + Space and ask: open an app, play a song, set a timer. She answers out loud, and keeps listening for a moment so you can just reply.</p>
+      <div class="pills" data-fade>
+        <span class="pill pill--line" data-i18n="voice.p1">dictation anywhere</span>
+        <span class="pill pill--line" data-i18n="voice.p2">heard on your computer</span>
+        <span class="pill pill--line" data-i18n="voice.p3">a natural voice</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ privacy ============ -->
+  <section class="section" id="privacy" data-section="privacy">
+    <div class="intro">
+      <h2 class="big" data-split data-i18n="priv.title">private<br>by default</h2>
+      <p class="side" data-fade data-i18n="priv.lead">Your voice is transcribed on your computer. Chat, weather and the speed test reach the internet only when you use them.</p>
+    </div>
+    <dl class="stats stats--wide" data-fade>
+      <div><dt><span data-count="0">0</span></dt><dd data-i18n="priv.s1">conversations<br>kept</dd></div>
+      <div><dt><span data-count="0">0</span></dt><dd data-i18n="priv.s2">passwords in<br>the clipboard</dd></div>
+      <div><dt><span data-count="0">0</span></dt><dd data-i18n="priv.s3">accounts<br>to create</dd></div>
+    </dl>
+  </section>
+
+  <!-- ============ install ============ -->
+  <section class="section" id="install" data-section="install">
+    <div class="intro">
+      <h2 class="big" data-split data-i18n="inst.title">install in<br>a minute</h2>
+      <p class="side" data-fade data-i18n="inst.lead">x64 and ARM64. Everything on GNOME 45 to 51; the island and most tabs on Cinnamon, MATE, XFCE and KDE.</p>
+    </div>
+    <div class="rows">
+      <div class="row" data-fade>
+        <span class="pill pill--dark">.deb</span>
+        <span class="row__who" data-i18n="inst.deb">Ubuntu, Debian, Mint, Pop!_OS, Zorin</span>
+        <code>sudo apt install ./lydia_1.0.0_amd64.deb</code>
+        <button class="orb" data-copy="sudo apt install ./lydia_1.0.0_amd64.deb" aria-label="Copy" data-cursor="copy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+      </div>
+      <div class="row" data-fade>
+        <span class="pill pill--dark">.rpm</span>
+        <span class="row__who" data-i18n="inst.rpm">Fedora, openSUSE</span>
+        <code>sudo dnf install ./lydia-1.0.0.x86_64.rpm</code>
+        <button class="orb" data-copy="sudo dnf install ./lydia-1.0.0.x86_64.rpm" aria-label="Copy" data-cursor="copy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+      </div>
+      <div class="row" data-fade>
+        <span class="pill pill--dark">AppImage</span>
+        <span class="row__who" data-i18n="inst.appimage">Any other distro</span>
+        <code>chmod +x Lydia-1.0.0.AppImage</code>
+        <button class="orb" data-copy="chmod +x Lydia-1.0.0.AppImage" aria-label="Copy" data-cursor="copy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ the last block ============ -->
+  <section class="section">
+    <div class="block block--violet cta">
+      <h2 data-split data-i18n="cta.title">give the top of<br>your screen a job</h2>
+      <a class="cut cut--br cut--big" href="#install" aria-label="Install" data-cursor="install"><span class="orb orb--big"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M7 17 17 7M8 7h9v9"/></svg></span></a>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="footer__row">
+    <p>© <span class="year">2026</span> lydia · <span data-i18n="foot.made">made in Brasil by Gabriel Dias, at <a class="link-u" href="https://cattastudios.com.br" target="_blank" rel="noopener">Catta Studios</a></span></p>
+    <a class="link-u" href="https://github.com/berelels/lydia" target="_blank" rel="noopener">GitHub</a>
+  </div>
+  <div class="footer__mark"></div>
+</footer>
+
+</div>
+
+<div class="cursor" aria-hidden="true"><span class="cursor__label"><span class="cursor__text"></span></span></div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/SplitText.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/MorphSVGPlugin.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/CustomEase.min.js"></script>
+<script src="https://unpkg.com/lenis@1.3.4/dist/lenis.min.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/glyphs.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

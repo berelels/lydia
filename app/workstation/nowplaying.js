@@ -87,11 +87,12 @@ async function nowPlaying() {
   const who = { player: p.name, app: p.name.replace('org.mpris.MediaPlayer2.', '').split('.')[0], identity: await identity(p.name) };
   const stream = streamOf(await streams(), who);
   const mprisVolume = Number(/'Volume': <([\d.]+)>/.exec(p.out)?.[1]);
+  const own = ownVolume(who, mprisVolume);
   return {
     trackId: /'mpris:trackid': <(?:objectpath )?'([^']*)'>/.exec(p.out)?.[1] ?? '',
     canSeek: /'CanSeek': <true>/.test(p.out),
     // its own stream's volume (what the mixer shows for that app), else what the player says
-    volume: stream ? stream.volume : Number.isFinite(mprisVolume) ? Math.round(mprisVolume * 100) : null,
+    volume: own ? Math.round(mprisVolume * 100) : stream ? stream.volume : Number.isFinite(mprisVolume) ? Math.round(mprisVolume * 100) : null,
     player: p.name,
     app: p.name.replace('org.mpris.MediaPlayer2.', '').split('.')[0],
     status: p.status,
@@ -109,11 +110,24 @@ async function seek(player, trackId, seconds) {
   await gdbus(['--dest', player, ...PATH, '--method', 'org.mpris.MediaPlayer2.Player.SetPosition', `'${trackId}'`, String(Math.max(0, Math.round(seconds * 1e6)))]);
 }
 
-/** That app's volume (0-100): its audio stream in the mixer, else the player's MPRIS volume. */
+/**
+ * Players with a volume of their own (Spotify): changed through it, or the
+ * next song comes back at the app's old volume, since it starts a new audio
+ * stream with it. Browsers report a fixed 1.0 and ignore it: their stream is used.
+ */
+const BROWSERS = /brave|chrom|firefox|vivaldi|opera|edge|epiphany/i;
+const ownVolume = (who, mprisVolume) => Number.isFinite(mprisVolume) && !BROWSERS.test(`${who.app} ${who.identity}`);
+
+/** That app's volume (0-100): its own when it has one, else its audio stream in the mixer, else MPRIS. */
 async function setVolume(player, value) {
   if (!/^org\.mpris\.MediaPlayer2\.[\w.-]+$/.test(player)) return;
   const pct = Math.max(0, Math.min(100, Math.round(Number(value))));
   const who = { player, app: player.replace('org.mpris.MediaPlayer2.', '').split('.')[0], identity: await identity(player) };
+  const props = await gdbus(['--dest', player, ...PATH, '--method', 'org.freedesktop.DBus.Properties.Get', 'org.mpris.MediaPlayer2.Player', 'Volume']);
+  if (ownVolume(who, Number(/<([\d.]+)>/.exec(props)?.[1]))) {
+    await gdbus(['--dest', player, ...PATH, '--method', 'org.freedesktop.DBus.Properties.Set', 'org.mpris.MediaPlayer2.Player', 'Volume', `<${pct / 100}>`]);
+    return;
+  }
   const stream = streamOf(await streams(), who);
   if (stream) await exec('pactl', ['set-sink-input-volume', String(stream.index), `${pct}%`]);
   else await gdbus(['--dest', player, ...PATH, '--method', 'org.freedesktop.DBus.Properties.Set', 'org.mpris.MediaPlayer2.Player', 'Volume', `<${pct / 100}>`]);

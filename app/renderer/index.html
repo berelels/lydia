@@ -37,6 +37,13 @@
       </div>
     </div>
 
+    <!-- A notification just arrived: who, what, and a way to dismiss it. Click opens it. -->
+    <div class="toast-view" id="toast">
+      <div class="toast-icon" id="toast-icon"></div>
+      <div class="toast-text"><span class="toast-app" id="toast-app"></span><b id="toast-title"></b><span class="toast-body" id="toast-body"></span></div>
+      <button class="toast-close" id="toast-close" data-i18n-title="notif.dismiss"><svg viewBox="0 0 24 24"><path class="stroke" d="M7 7l10 10M17 7 7 17"/></svg></button>
+    </div>
+
     <!-- Expanded: tabs, then one of the views. -->
     <div class="panel-view">
       <div class="topbar">

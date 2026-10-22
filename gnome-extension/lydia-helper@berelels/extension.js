@@ -40,6 +40,9 @@ const IFACE = `
     <method name="SetSuper">
       <arg type="b" name="mine" direction="in"/>
     </method>
+    <method name="SetBanners">
+      <arg type="b" name="mine" direction="in"/>
+    </method>
     <method name="Overview"/>
     <method name="Notifications">
       <arg type="s" name="json" direction="out"/>
@@ -65,7 +68,7 @@ const IFACE = `
   </interface>
 </node>`;
 
-const VERSION = 4;
+const VERSION = 6;
 const KEEPALIVE_MS = 15000; // Lydia calls Watch every 5 s; silent this long, she is gone
 const POINTER_MS = 50;
 const WINDOWS_MS = 700; // moves and resizes have no cheap global signal
@@ -88,6 +91,7 @@ export default class LydiaHelper extends Extension {
     this._wantHidden = false;
     this._panelHidden = false;
     this._wantSuper = false;
+    this._wantBanners = false; // Lydia shows the notifications herself: GNOME's banners stay quiet
     this._superId = 0; // our overlay-key handler while the Super key is Lydia's
     this._refitId = 0; // waiting for the work area to change (see _refitAfter)
     // notifications: each gets a number Lydia can name it by
@@ -111,6 +115,8 @@ export default class LydiaHelper extends Extension {
     this._applyPanel();
     this._wantSuper = false;
     this._applySuper();
+    this._wantBanners = false;
+    this._applyBanners();
     this._sleep();
     Gio.bus_unown_name(this._owner);
     this._dbus.unexport();
@@ -141,6 +147,15 @@ export default class LydiaHelper extends Extension {
     this._applySuper();
   }
 
+  /**
+   * Lydia shows each new notification herself, while she keeps calling Watch:
+   * GNOME's banners are blocked (they still land in the tray and in her list).
+   */
+  SetBanners(mine) {
+    this._wantBanners = mine;
+    this._applyBanners();
+  }
+
   /** Lydia's "workspaces" button. */
   Overview() {
     Main.overview.toggle();
@@ -165,6 +180,7 @@ export default class LydiaHelper extends Extension {
           body: n.body ?? '',
           time: n.datetime ? n.datetime.to_unix() * 1000 : 0,
           icon: iconOf(n.gicon) || iconOf(src.icon),
+          urgent: (n.urgency ?? 1) >= 3, // CRITICAL
         });
       }
     }
@@ -224,6 +240,7 @@ export default class LydiaHelper extends Extension {
       this._sleep();
       this._applyPanel(); // Lydia is gone: the panel comes back
       this._applySuper(); // ...and Super opens the overview again
+      this._applyBanners(); // ...and GNOME shows its banners again
       return GLib.SOURCE_REMOVE;
     }
     const [x, y] = global.get_pointer();
@@ -233,6 +250,11 @@ export default class LydiaHelper extends Extension {
       this._dbus.emit_signal('Pointer', new GLib.Variant('(ii)', [x, y]));
     }
     return GLib.SOURCE_CONTINUE;
+  }
+
+  _applyBanners() {
+    const block = this._wantBanners && Date.now() <= this._until;
+    if (Main.messageTray.bannerBlocked !== block) Main.messageTray.bannerBlocked = block;
   }
 
   _applyPanel() {

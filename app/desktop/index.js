@@ -26,6 +26,7 @@ class NoDesktop {
   overview() {
     return false;
   }
+  setBanners() {}
   notifications(cb) {
     cb(null);
   }

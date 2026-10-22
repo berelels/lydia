@@ -675,12 +675,17 @@ function renderMusic() {
   $('music-cover').style.backgroundImage = url;
   $('music-bg').style.backgroundImage = url;
   $('music').classList.toggle('no-cover', !musicCover);
-  $('music-play').innerHTML = music.status === 'Playing' ? PAUSE : PLAY;
+  // only when it changes: replacing the icon under a click in progress loses that click
+  const icon = music.status === 'Playing' ? 'pause' : 'play';
+  if ($('music-play').dataset.icon !== icon) {
+    $('music-play').dataset.icon = icon;
+    $('music-play').innerHTML = icon === 'pause' ? PAUSE : PLAY;
+  }
   $('music').classList.toggle('playing', music.status === 'Playing');
   $('music-scrub').classList.toggle('off', !music.length || !music.canSeek);
   const v = $('music-volume');
   v.parentElement.hidden = music.volume == null;
-  if (music.volume != null && document.activeElement !== v) {
+  if (music.volume != null && Date.now() - volTouched > 2500) {
     v.value = music.volume;
     v.style.setProperty('--v', `${music.volume}%`);
   }
@@ -736,6 +741,11 @@ window.lydia.on('media', (m) => {
 
 async function musicDo(action) {
   if (!music) return;
+  if (action === 'toggle') {
+    // answer the click at once; the player confirms a moment later
+    music = { ...music, status: music.status === 'Playing' ? 'Paused' : 'Playing', position: musicPos(), at: Date.now() };
+    renderMusic();
+  }
   const m = await ws('media.do', { player: music.player, action });
   if (m) {
     musicCover = m.cover || musicCover;
@@ -756,13 +766,34 @@ $('music-pos').addEventListener('change', async (e) => {
   await ws('media.seek', { player: music.player, trackId: music.trackId, seconds });
   seeking = false;
 });
+let volTouched = 0; // while the volume is being dragged (and a moment after) the poll doesn't move it back
+$('music-volume').addEventListener('pointerdown', () => (volTouched = Date.now() + 60_000));
+$('music-volume').addEventListener('pointerup', () => (volTouched = Date.now()));
 $('music-volume').addEventListener('input', (e) => {
+  volTouched = Math.max(volTouched, Date.now());
   const value = Number(e.target.value);
   e.target.style.setProperty('--v', `${value}%`);
   clearTimeout(volTimer);
   volTimer = setTimeout(() => music && ws('media.volume', { player: music.player, value }), 60);
 });
 for (const id of ['music-cover', 'music-meta']) $(id).addEventListener('click', () => window.lydia.open('controls'));
+
+// ---------- a notification that just arrived (the island shows it for a few seconds) ----------
+
+let toast = null;
+window.lydia.on('toast', (n) => {
+  toast = n;
+  $('toast-icon').style.backgroundImage = n.icon ? `url("${n.icon}")` : '';
+  $('toast-icon').classList.toggle('none', !n.icon);
+  $('toast-app').textContent = n.app;
+  $('toast-title').textContent = n.title || n.app;
+  $('toast-body').textContent = n.body;
+});
+$('toast').addEventListener('click', () => toast && ws('notif.open', { id: toast.id }));
+$('toast-close').addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (toast) ws('notif.dismiss', { id: toast.id });
+});
 
 // ---------- the weather (Today's card, and next to the clock on the bar) ----------
 
