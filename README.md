@@ -52,7 +52,7 @@ Each push to `main` builds the packages on GitHub Actions (the run's **lydia-lin
 | `Lydia-<version>.flatpak` (x64) | Any distro with Flatpak. She runs the system's tools on the host (`flatpak-spawn --host`); the busiest-apps list only sees her own sandbox |
 
 ```bash
-sudo apt install ./lydia_1.0.0_amd64.deb
+sudo apt install ./lydia_1.1.0_amd64.deb
 ```
 
 Or build the `.deb` here (`npm run dist`), or all of them (`npm run dist:all`, needs `rpm` for the `.rpm`). The Flatpak: `npm run dist:flatpak`, with `flatpak-builder` (or `PATH="$PWD/build:$PATH" npm run dist:flatpak` to use Flathub's `org.flatpak.Builder`).
