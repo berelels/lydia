@@ -435,6 +435,34 @@ let tasksTimer = 0;
 let confirmName = null;
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
+/**
+ * New markup for a part of the island that refreshes by itself (Controls, Today,
+ * System...): only when it changed, and never while a mouse button is down.
+ * Replacing a button between press and release loses that click, which looked
+ * like clicks failing at random. after(el) runs once the markup is in.
+ */
+const pendingSwaps = new Map();
+let pressing = false;
+function swap(el, html, after) {
+  if (!el) return;
+  if (pressing) return void pendingSwaps.set(el, [html, after]);
+  pendingSwaps.delete(el);
+  if (el._html === html) return;
+  el.innerHTML = html;
+  el._html = html;
+  after?.(el);
+}
+const released = () => {
+  if (!pressing) return;
+  pressing = false;
+  // after the click has been delivered to what was under the pointer
+  setTimeout(() => [...pendingSwaps].forEach(([el, [html, after]]) => swap(el, html, after)), 0);
+};
+addEventListener('pointerdown', () => (pressing = true), true);
+addEventListener('pointerup', released, true);
+addEventListener('pointercancel', released, true);
+addEventListener('blur', released);
+
 async function loadTasks() {
   const list = await window.lydia.tasks(tasksBy);
   const rows = list.map((task) => {
@@ -446,7 +474,7 @@ async function loadTasks() {
       ${task.self ? '<span></span>' : `<button data-name="${esc(task.name)}" class="${ask ? 'confirm' : ''}">${t(ask ? 'tasks.confirm' : 'tasks.kill')}</button>`}
     </div>`;
   });
-  $('task-list').innerHTML = `<div class="task head"><span>${t('tasks.app')}</span><span class="num">CPU</span><span class="num">${t('tasks.memory')}</span><span></span></div>${rows.join('')}`;
+  swap($('task-list'), `<div class="task head"><span>${t('tasks.app')}</span><span class="num">CPU</span><span class="num">${t('tasks.memory')}</span><span></span></div>${rows.join('')}`);
 }
 function startTasks() {
   clearInterval(tasksTimer);

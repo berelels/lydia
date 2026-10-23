@@ -61,7 +61,7 @@ function renderControls() {
   if (ctl.nightLight !== null) tiles.push(tile('nightLight', 'night', t('ctl.night'), t(ctl.nightLight ? 'ctl.on' : 'ctl.off'), ctl.nightLight));
   if (ctl.dnd !== null) tiles.push(tile('dnd', 'dnd', t('ctl.dnd'), t(ctl.dnd ? 'ctl.on' : 'ctl.off'), ctl.dnd));
   if (ctl.dark !== null) tiles.push(tile('dark', 'dark', t('ctl.dark'), t(ctl.dark ? 'ctl.on' : 'ctl.off'), ctl.dark));
-  $('ctl-grid').innerHTML = tiles.join('');
+  swap($('ctl-grid'), tiles.join(''));
 
   if (sliding) return;
   const s = ctl.sound;
@@ -81,8 +81,8 @@ function renderControls() {
     rows.push(`<div class="ctl-row"><span class="ctl-ico" title="${esc(t('ctl.brightness'))}">${icon('sun')}</span>
       <input type="range" min="1" max="100" value="${ctl.brightness}" data-what="brightness"></div>`);
   }
-  $('ctl-sliders').innerHTML = rows.join('');
-  for (const r of $('ctl-sliders').querySelectorAll('input[type="range"]')) r.style.setProperty('--v', `${r.value}%`); // (inline style="" is blocked by the page's CSP)
+  // (inline style="" is blocked by the page's CSP)
+  swap($('ctl-sliders'), rows.join(''), (el) => el.querySelectorAll('input[type="range"]').forEach((r) => r.style.setProperty('--v', `${r.value}%`)));
 }
 
 let playerKey = '';
@@ -120,7 +120,7 @@ function renderPlayer() {
     box.querySelector('.cp-bg').style.backgroundImage = url;
     box.querySelector('.cover').style.backgroundImage = url;
   }
-  box.querySelector('[data-act="toggle"]').innerHTML = icon(p.status === 'Playing' ? 'pause' : 'play');
+  swap(box.querySelector('[data-act="toggle"]'), icon(p.status === 'Playing' ? 'pause' : 'play'));
   box.classList.toggle('playing', p.status === 'Playing');
   box.querySelector('.cp-pos').hidden = !p.length;
   const vol = box.querySelector('.cp-vol input');
@@ -324,7 +324,7 @@ function renderWeek() {
     const k = dayKey(d);
     days.push(`<div class="day ${k === dayKey(now) ? 'today' : ''}"><small>${esc(fmtDay.format(d).replace('.', ''))}</small><b>${d.getDate()}</b><i>${count[k] ? '•'.repeat(Math.min(3, count[k])) : ''}</i></div>`);
   }
-  $('week').innerHTML = days.join('');
+  swap($('week'), days.join(''));
 }
 
 function renderTodos() {
@@ -342,16 +342,19 @@ function renderTodos() {
       <button class="x" data-do="remove">${icon('close')}</button></div>`;
   });
   const anyDone = todos.some((x) => x.done);
-  $('todo').innerHTML = rows.length ? rows.join('') + (anyDone ? `<button class="link small clear-done">${esc(t('today.clear_done'))}</button>` : '') : `<div class="muted empty">${esc(t('today.empty'))}</div>`;
+  swap($('todo'), rows.length ? rows.join('') + (anyDone ? `<button class="link small clear-done">${esc(t('today.clear_done'))}</button>` : '') : `<div class="muted empty">${esc(t('today.empty'))}</div>`);
 }
 
 function renderTimer() {
   const left = (timerEnd - Date.now()) / 1000;
   const box = $('timers');
   if (left > 0) {
-    box.innerHTML = `<span class="timer-left">${esc(t('today.timer_left', { left: clock(left) }))}</span><button class="s-btn plain" data-cancel>${esc(t('today.cancel'))}</button>`;
+    // each second only the countdown's text changes: the Cancel button stays put under the mouse
+    const text = t('today.timer_left', { left: clock(left) });
+    if (box.querySelector('.timer-left')) box.querySelector('.timer-left').textContent = text;
+    else swap(box, `<span class="timer-left">${esc(text)}</span><button class="s-btn plain" data-cancel>${esc(t('today.cancel'))}</button>`);
   } else if (!box.querySelector('[data-min]')) {
-    box.innerHTML = `<span class="muted">${esc(t('today.timer'))}</span>${[5, 15, 25, 60].map((m) => `<button class="s-btn plain" data-min="${m}">${m} min</button>`).join('')}`;
+    swap(box, `<span class="muted">${esc(t('today.timer'))}</span>${[5, 15, 25, 60].map((m) => `<button class="s-btn plain" data-min="${m}">${m} min</button>`).join('')}`);
   }
 }
 
@@ -406,7 +409,7 @@ $('timers').addEventListener('click', async (e) => {
   if (!b) return;
   if (b.dataset.min) timerEnd = await ws('timer.start', { seconds: Number(b.dataset.min) * 60 });
   else if ('cancel' in b.dataset) timerEnd = await ws('timer.cancel');
-  $('timers').innerHTML = '';
+  swap($('timers'), '');
   renderTimer();
 });
 
@@ -445,7 +448,7 @@ function renderClip() {
       <span class="acts"><button data-do="pin" class="${x.pinned ? 'on' : ''}" title="${esc(t(x.pinned ? 'clip.unpin' : 'clip.pin'))}">${icon('pin')}</button><button data-do="remove" title="${esc(t('clip.remove'))}">${icon('close')}</button></span></div>`,
   );
   const note = clipPaused ? `<div class="muted empty">${esc(t('clip.paused'))}</div>` : '';
-  $('clip-list').innerHTML = note + (rows.length ? rows.join('') : clipPaused ? '' : `<div class="muted empty">${esc(t('clip.empty'))}</div>`);
+  swap($('clip-list'), note + (rows.length ? rows.join('') : clipPaused ? '' : `<div class="muted empty">${esc(t('clip.empty'))}</div>`));
 }
 async function loadClip() {
   const r = await ws('clip.get');
@@ -490,9 +493,9 @@ function renderApps() {
   const cell = (a) => `<button class="app" data-id="${esc(a.id)}" title="${esc(a.name)} · ${esc(t('apps.fav_tip'))}">${a.icon ? `<img src="${a.icon}" alt="">` : `<i>${esc(a.name[0] ?? '?')}</i>`}<span>${esc(a.name)}</span></button>`;
   // only the categories that have apps, each a chip: a click filters, again shows all
   const present = new Set(appData.all.map((a) => a.category));
-  $('app-cats').innerHTML = CATS.filter((c) => c === 'all' || present.has(c))
+  swap($('app-cats'), CATS.filter((c) => c === 'all' || present.has(c))
     .map((c) => `<button class="cat${c === appCat ? ' on' : ''}" data-cat="${c}">${esc(t(`apps.cat_${c}`))}</button>`)
-    .join('');
+    .join(''));
   // every word of the search (its start: "explorador" finds "explorar") in the name, the English name or the keywords
   const plain = (x) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const words = plain(q).split(/\s+/).filter((w) => w.length > 2);
@@ -513,7 +516,7 @@ function renderApps() {
   if (home && appData.favorites.length) html += `<div class="side-title">${esc(t('apps.favorites'))}</div><div class="apps fav">${appData.favorites.map(cell).join('')}</div>`;
   if (home && (trayItems.length || appData.favorites.length)) html += `<div class="side-title">${esc(t('apps.all'))}</div>`;
   html += all.length ? `<div class="apps">${all.map(cell).join('')}</div>` : `<div class="muted empty">${esc(t('apps.none'))}</div>`;
-  $('app-grid').innerHTML = html;
+  swap($('app-grid'), html);
 }
 async function loadApps() {
   appData = (await ws('apps.get')) ?? appData;
@@ -710,18 +713,19 @@ function renderNotifs() {
   renderNotifCount();
   $('notif-dnd').textContent = notifDnd === null ? '' : t(notifDnd ? 'notif.dnd_on' : 'notif.dnd_off');
   $('notif-clear').hidden = !notifs?.length;
-  if (notifs === null) return ($('notif-list').innerHTML = `<div class="muted empty">${esc(t('notif.unavailable'))}</div>`);
-  if (!notifs.length) return ($('notif-list').innerHTML = `<div class="muted empty">${esc(t('notif.empty'))}</div>`);
-  $('notif-list').innerHTML = notifs
+  if (notifs === null) return swap($('notif-list'), `<div class="muted empty">${esc(t('notif.unavailable'))}</div>`);
+  if (!notifs.length) return swap($('notif-list'), `<div class="muted empty">${esc(t('notif.empty'))}</div>`);
+  swap($('notif-list'), notifs
     .map(
       (n) => `<div class="notif" data-id="${n.id}">
       ${n.icon ? `<img src="${n.icon}" alt="">` : `<i class="notif-ico">${esc((n.app || '?')[0])}</i>`}
       <div class="notif-text"><small>${esc(n.app)}${n.time ? ` · ${esc(ago(n.time))}` : ''}</small><b>${esc(plainText(n.title))}</b><span>${esc(plainText(n.body))}</span></div>
       <button class="x" data-do="dismiss">${icon('close')}</button></div>`,
     )
-    .join('');
-  // the stagger index for the entrance animation (an inline style="" would be blocked by the CSP)
-  $('notif-list').querySelectorAll('.notif').forEach((el, i) => el.style.setProperty('--i', i));
+    .join(''),
+    // the stagger index for the entrance animation (an inline style="" would be blocked by the CSP)
+    (el) => el.querySelectorAll('.notif').forEach((n, i) => n.style.setProperty('--i', i)),
+  );
 }
 async function loadNotifs() {
   notifs = await ws('notif.get');
