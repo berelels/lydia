@@ -85,7 +85,8 @@ const RULES = [
   [/^(?:fecha|fechar|feche|close|quit|cierra|cerrar|encerra|encerrar)\s+(?:o\s+|a\s+|the\s+|el\s+|la\s+)?(.+)$/, (m) => ({ tool: 'close_app', args: { name: m[1].trim() } })],
 
   // ---- time, timers ----
-  [/\b(?:que horas|quantas horas|what time|que hora)\b/, () => ({ tool: 'time_now', args: {} })],
+  // only the question itself ("que horas sao"): "que horas e o debate hoje" is a question for the chat
+  [/^(?:que horas(?: sao| e)?|quantas horas|que hora es|what time is it|what s the time)$/, () => ({ tool: 'time_now', args: {} })],
   [/\b(?:timer|temporizador|cronometro|alarme|me avisa|me lembra|avisa|remind me|set a timer|alarma|avisame)\b.*?\b(\d+|\w+)\s*(segundos?|seg|s|minutos?|min|horas?|h|seconds?|sec|minutes?|hours?)\b/, (m) => {
     const n = number(m[1]);
     return n == null ? null : { tool: 'timer', args: { seconds: n * SECONDS[m[2]] } };

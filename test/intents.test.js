@@ -59,3 +59,10 @@ test('tool declarations are valid for Gemini function calling', () => {
     for (const r of d.parameters.required ?? []) assert.ok(r in d.parameters.properties, `${d.name} requires unknown ${r}`);
   }
 });
+
+test('"que horas" only as the question itself', () => {
+  assert.strictEqual(parse('que horas são?')?.tool, 'time_now');
+  assert.strictEqual(parse('what time is it')?.tool, 'time_now');
+  assert.strictEqual(parse('que horas é o debate na globo hoje?'), null);
+  assert.strictEqual(parse('quantas horas faltam pro natal'), null);
+});

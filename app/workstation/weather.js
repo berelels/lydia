@@ -58,4 +58,7 @@ async function weather({ city = '', lang = 'pt', force = false } = {}) {
   }
 }
 
-module.exports = { weather, kindOf };
+/** The city of the last weather fetched ('' before any). */
+const lastCity = () => cache?.data?.city ?? '';
+
+module.exports = { weather, kindOf, lastCity };

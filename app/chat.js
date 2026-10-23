@@ -5,8 +5,11 @@ const path = require('path');
 
 const { t } = require('./i18n');
 
-// Who she is, in the interface's language (she still answers in the user's).
-const persona = () => t('persona');
+// Who she is, in the interface's language (she still answers in the user's),
+// and where and when she is (main fills it in: date, time, city, desktop).
+let context = () => '';
+const setContext = (fn) => (context = fn);
+const persona = () => `${t('persona')} ${context()}`.trim();
 
 function findClaude() {
   for (const p of [path.join(os.homedir(), '.local/bin/claude'), '/usr/local/bin/claude', '/usr/bin/claude']) {
@@ -132,4 +135,4 @@ const MODELS = () => [
   { id: 'haiku', label: 'Haiku' },
 ];
 
-module.exports = { ChatSession, MODELS, persona, findClaude };
+module.exports = { ChatSession, MODELS, persona, setContext, findClaude };

@@ -170,6 +170,8 @@ class HttpError extends Error {
   }
 }
 
+let searchOffUntil = 0; // Google Search's quota ran out: answers without it for a while
+
 class GeminiChat extends HistoryChat {
   constructor(opts) {
     super(opts);
@@ -178,11 +180,13 @@ class GeminiChat extends HistoryChat {
   }
 
   /** One request; aborted if the model hasn't started answering within START_MS. */
-  async request(model, signal, thinking = true, cancel = null) {
+  async request(model, signal, thinking = true, cancel = null, search = Date.now() > searchOffUntil) {
     const config = thinking && thinkingFor(model);
     const body = JSON.stringify({
       systemInstruction: { parts: [{ text: persona() }] },
       contents: this.history.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] })),
+      // Google Search: what's on today, scores, news... (the free quota covers a person's use)
+      ...(search ? { tools: [{ google_search: {} }] } : {}),
       ...(config ? { generationConfig: { thinkingConfig: config } } : {}),
     });
     const ac = new AbortController();
@@ -198,9 +202,16 @@ class GeminiChat extends HistoryChat {
         signal: ac.signal,
       });
       // Some models don't take a thinking setting: ask again without it.
-      if (res.status === 400 && config) {
+      // Google Search has its own (smaller) quota: when it is used up, the answer comes without it
+      if (res.status === 429 && search) {
+        await res.body?.cancel?.();
+        searchOffUntil = Date.now() + 60 * 60_000;
+        return this.request(model, signal, thinking, cancel, false);
+      }
+      if (res.status === 400 && (config || search)) {
         const text = await res.text();
-        if (/thinking/i.test(text)) return this.request(model, signal, false, cancel);
+        if (config && /thinking/i.test(text)) return this.request(model, signal, false, cancel, search);
+        if (search && /search|tool/i.test(text)) return this.request(model, signal, thinking, cancel, false); // a model without search
         return { res, text };
       }
       return { res, text: res.ok ? '' : await res.text() };
@@ -262,7 +273,8 @@ class GeminiChat extends HistoryChat {
             if (done) return res.body?.cancel?.();
             if (res.ok) return finish(resolve, { res, model });
             if (process.env.LYDIA_DEBUG) console.log(`[lydia] gemini ${model} -> ${res.status} ${text.slice(0, 300).replace(/\s+/g, ' ')}`);
-            last = Object.assign(new HttpError(res.status, text), { model });
+            // a retired fallback model's 404 shouldn't hide the real reason (quota, overload)
+            if (!(res.status === 404 && last && [429, 503].includes(last.status))) last = Object.assign(new HttpError(res.status, text), { model });
             if (res.status === 429) quotaRest(model, text); // this model's quota is used up: the next one has its own
             else if (res.status === 503) resting.set(model, Date.now() + REST_MS); // overloaded right now
             else if (!attempts.size) return finish(reject, last); // a real error, nothing else running

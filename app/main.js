@@ -8,7 +8,7 @@ const config = require('./config');
 const i18n = require('./i18n');
 const { t } = i18n;
 const sys = require('./monitor');
-const { ChatSession, MODELS, findClaude } = require('./chat');
+const { ChatSession, MODELS, findClaude, setContext } = require('./chat');
 const { GeminiChat, OllamaChat, ollamaModels, geminiModels, stopOllama, geminiGenerate, geminiSpeech } = require('./providers');
 const { pickDesktop } = require('./desktop');
 const setup = require('./setup');
@@ -20,11 +20,26 @@ const voiceInstall = require('./assistant/install');
 const controls = require('./workstation/controls');
 const nowplaying = require('./workstation/nowplaying');
 const { Spectrum } = require('./workstation/spectrum');
-const { weather } = require('./workstation/weather');
+const { weather, lastCity } = require('./workstation/weather');
 const today = require('./workstation/today');
 const clip = require('./workstation/clipboard');
 const files = require('./workstation/files');
 const updates = require('./updates');
+
+// What the chat should know without being told: now, where, on what
+setContext(() => {
+  const now = new Date();
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const when = now.toLocaleString(t('locale'), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const city = cfg?.weather_city || lastCity();
+  const desk = process.env.XDG_CURRENT_DESKTOP || 'Linux';
+  return [
+    `Right now it is ${when} (${zone}).`,
+    city ? `The user is in or near ${city}.` : '',
+    `You live inside Lydia, a workstation app on the user's Linux computer (${desk}); the app itself opens apps, sets the volume and timers, so if asked about the computer, say what they can ask Lydia to do.`,
+    'When a question needs current information (today\'s TV, news, scores, weather elsewhere), use Google Search if you have it, and give the answer, not a reason you cannot.',
+  ].filter(Boolean).join(' ');
+});
 const tray = require('./workstation/tray');
 
 // Under Wayland, run through XWayland: a native Wayland window can't place
